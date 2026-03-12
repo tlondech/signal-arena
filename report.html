@@ -34,7 +34,7 @@
 
 <script id="report-data" type="application/json">
 {
-  "generated_at": "2026-03-12T13:18:06.373295",
+  "generated_at": "2026-03-12T15:41:10.839137",
   "date": "2026-03-12",
   "value_bets": [
     {
@@ -4245,10 +4245,9 @@
   <!-- Error banner -->
   <div id="error-msg" class="hidden mb-4 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-800 rounded-xl px-5 py-4 text-sm"></div>
 
-  <!-- Sticky filter area: league row + bet type row -->
+  <!-- Sticky filter area: search + filters button -->
   <div id="filter-wrapper" class="sticky top-14 z-10 -mx-4 px-4 backdrop-blur-sm bg-gray-100/80 dark:bg-gray-950/80 border-b border-gray-200 dark:border-gray-800">
-    <div id="league-bar" class="flex gap-2 overflow-x-auto no-scrollbar pt-3 pb-2"></div>
-    <div id="filter-bar" class="flex flex-wrap items-center gap-3 pb-3"></div>
+    <div id="filter-bar" class="flex flex-wrap items-center gap-3 py-3"></div>
   </div>
 
   <!-- Cards feed -->
@@ -4257,6 +4256,110 @@
   <footer id="footer" class="mt-8 text-right text-xs text-gray-400 dark:text-gray-600"></footer>
 
 </div>
+
+<!-- Advanced Filters Backdrop -->
+<div id="filters-backdrop"
+  class="hidden fixed inset-0 bg-black/40 z-40 transition-opacity"></div>
+
+<!-- Advanced Filters Drawer -->
+<aside id="filters-drawer"
+  class="fixed top-0 right-0 h-full w-80 z-50 bg-white dark:bg-gray-900 shadow-2xl translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Advanced Filters</h2>
+    <button id="close-filters-btn"
+      class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Form Body (scrollable) -->
+  <div class="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+
+    <!-- League -->
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">League</label>
+      <div id="league-bar" class="flex flex-col gap-2"></div>
+    </div>
+
+    <!-- Bet Type -->
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Bet Type</label>
+      <div id="bet-type-pills" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <!-- Expected Value (EV) -->
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Expected Value (EV)</label>
+      <div class="flex items-center gap-3">
+        <div class="flex-1">
+          <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Min %</label>
+          <input id="filter-ev-min" type="number" placeholder="0" min="-100" max="100" step="0.1"
+            class="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex-1">
+          <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Max %</label>
+          <input id="filter-ev-max" type="number" placeholder="100" min="-100" max="100" step="0.1"
+            class="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+    </div>
+
+    <!-- Odds Range -->
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Odds Range</label>
+      <div class="flex items-center gap-3">
+        <div class="flex-1">
+          <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Min Odds</label>
+          <input id="filter-odds-min" type="number" placeholder="1.00" min="1" step="0.01"
+            class="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex-1">
+          <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Max Odds</label>
+          <input id="filter-odds-max" type="number" placeholder="10.00" min="1" step="0.01"
+            class="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+    </div>
+
+    <!-- Model Probability -->
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <label for="filter-prob-min" class="text-sm font-semibold text-gray-700 dark:text-gray-300">Model Probability</label>
+        <span id="filter-prob-min-value" class="text-sm font-semibold text-blue-600 dark:text-blue-400 tabular-nums">0%</span>
+      </div>
+      <input id="filter-prob-min" type="range" min="0" max="100" value="0" step="1"
+        class="w-full h-2 rounded-full appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700 accent-blue-600">
+      <div class="flex justify-between text-xs text-gray-400 dark:text-gray-600 mt-1">
+        <span>0%</span><span>50%</span><span>100%</span>
+      </div>
+    </div>
+
+    <!-- Exclude High-Risk Toggle -->
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">Exclude High-Risk</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Hide EV &gt; 20% (Safe Mode)</p>
+      </div>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input id="filter-safe-mode" type="checkbox" class="sr-only peer">
+        <div class="w-10 h-6 rounded-full bg-gray-200 dark:bg-gray-700
+          peer-checked:bg-blue-600
+          peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 dark:peer-focus:ring-offset-gray-900
+          after:content-[''] after:absolute after:top-0.5 after:left-0.5
+          after:bg-white after:rounded-full after:h-5 after:w-5
+          after:transition-all peer-checked:after:translate-x-4 transition-colors">
+        </div>
+      </label>
+    </div>
+
+  </div>
+
+
+</aside>
 
 <script>
   // ---------------------------------------------------------------------------
@@ -4902,6 +5005,69 @@
       let activeBetType = "all";
       let activeTeamSearch = "";
       let currentTabMatches = [];
+      let advFilters = { evMin: null, evMax: null, oddsMin: null, oddsMax: null, probMin: 0, safeMode: false };
+      function parseFloatOrNull(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
+
+      function updateFilterBadge() {
+        const count = [
+          activeTab !== "all",
+          activeBetType !== "all",
+          advFilters.evMin   !== null,
+          advFilters.evMax   !== null,
+          advFilters.oddsMin !== null,
+          advFilters.oddsMax !== null,
+          advFilters.probMin > 0,
+          advFilters.safeMode,
+        ].filter(Boolean).length;
+        const badge    = document.getElementById("filters-count-badge");
+        const clearBtn = document.getElementById("clear-filters-btn");
+        if (badge) {
+          badge.textContent = count;
+          badge.style.display = count === 0 ? "none" : "inline-flex";
+        }
+        if (clearBtn) {
+          clearBtn.disabled = count === 0;
+          clearBtn.className = count === 0
+            ? "flex items-center gap-1 px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-400 dark:text-gray-600 transition-colors opacity-50 cursor-not-allowed"
+            : "flex items-center gap-1 px-3 py-1 text-sm font-medium rounded-lg border border-red-200 dark:border-red-800 bg-white dark:bg-gray-900 text-red-500 dark:text-red-400 hover:border-red-400 dark:hover:border-red-600 hover:text-red-700 dark:hover:text-red-300 transition-colors";
+        }
+        updateFilterChips();
+      }
+
+      function updateFilterChips() {
+        const chips = [];
+        if (activeTab !== "all") {
+          const tab = tabs.find(t => t.key === activeTab);
+          if (tab) chips.push(tab.name);
+        }
+        if (activeBetType !== "all") {
+          const bt = BET_TYPES.find(t => t.key === activeBetType);
+          if (bt) chips.push(bt.label);
+        }
+        if (advFilters.evMin   !== null) chips.push(`EV ≥ ${advFilters.evMin}%`);
+        if (advFilters.evMax   !== null) chips.push(`EV ≤ ${advFilters.evMax}%`);
+        if (advFilters.oddsMin !== null) chips.push(`Odds ≥ ${advFilters.oddsMin}`);
+        if (advFilters.oddsMax !== null) chips.push(`Odds ≤ ${advFilters.oddsMax}`);
+        if (advFilters.probMin > 0)      chips.push(`Prob ≥ ${advFilters.probMin}%`);
+        if (advFilters.safeMode)         chips.push("Safe Mode");
+        const container = document.getElementById("active-filters-chips");
+        if (!container) return;
+        container.innerHTML = chips.map(label =>
+          `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">${escHtml(label)}</span>`
+        ).join("");
+      }
+
+      function syncAdvFilters() {
+        advFilters = {
+          evMin:    parseFloatOrNull(document.getElementById("filter-ev-min").value),
+          evMax:    parseFloatOrNull(document.getElementById("filter-ev-max").value),
+          oddsMin:  parseFloatOrNull(document.getElementById("filter-odds-min").value),
+          oddsMax:  parseFloatOrNull(document.getElementById("filter-odds-max").value),
+          probMin:  parseFloat(document.getElementById("filter-prob-min").value) || 0,
+          safeMode: document.getElementById("filter-safe-mode").checked,
+        };
+        applyFilters();
+      }
 
       const BET_TYPES = [
         { key: "all",       label: "All Types" },
@@ -4941,6 +5107,20 @@
             .filter(m => m.bets.length > 0);
         }
 
+        matches = matches.map(m => ({
+          ...m,
+          bets: m.bets.filter(b => {
+            if (advFilters.evMin  !== null && b.ev * 100 < advFilters.evMin)  return false;
+            if (advFilters.evMax  !== null && b.ev * 100 > advFilters.evMax)  return false;
+            if (advFilters.oddsMin !== null && b.odds < advFilters.oddsMin)   return false;
+            if (advFilters.oddsMax !== null && b.odds > advFilters.oddsMax)   return false;
+            if (advFilters.probMin > 0 && (b.true_prob ?? 0) * 100 < advFilters.probMin) return false;
+            if (advFilters.safeMode && b.ev > 0.20) return false;
+            return true;
+          })
+        })).filter(m => m.bets.length > 0);
+
+        updateFilterBadge();
         renderBetList(matches, container);
       }
 
@@ -4970,12 +5150,57 @@
       function buildFilterBar() {
         const filterBar = document.getElementById("filter-bar");
         filterBar.innerHTML = `
-          <div id="bet-type-pills" class="flex items-center gap-2 flex-wrap"></div>
           <input id="team-search" type="text" placeholder="Search team…"
             class="px-3 py-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value="${escHtml(activeTeamSearch)}">`;
+            value="${escHtml(activeTeamSearch)}">
+          <button id="open-filters-btn"
+            class="flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z"/>
+            </svg>
+            Filters
+            <span id="filters-count-badge" style="display:none" class="inline-flex items-center justify-center text-xs font-bold bg-blue-600 text-white rounded-full w-4 h-4">0</span>
+          </button>
+          <button id="clear-filters-btn" disabled
+            class="flex items-center gap-1 px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-400 dark:text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+            Clear filters
+          </button>
+          <div id="active-filters-chips" class="flex items-center gap-2 flex-wrap"></div>`;
 
-        filterBar.addEventListener("click", e => {
+        function openDrawer() {
+          document.getElementById("filters-drawer").classList.remove("translate-x-full");
+          document.getElementById("filters-backdrop").classList.remove("hidden");
+        }
+        function closeDrawer() {
+          document.getElementById("filters-drawer").classList.add("translate-x-full");
+          document.getElementById("filters-backdrop").classList.add("hidden");
+        }
+
+        document.addEventListener("click", e => {
+          if (e.target.closest("#open-filters-btn"))  { openDrawer();  return; }
+          if (e.target.closest("#close-filters-btn")) { closeDrawer(); return; }
+          if (e.target.closest("#filters-backdrop"))  { closeDrawer(); return; }
+          if (e.target.closest("#clear-filters-btn")) {
+            advFilters = { evMin: null, evMax: null, oddsMin: null, oddsMax: null, probMin: 0, safeMode: false };
+            activeTab = "all";
+            activeBetType = "all";
+            document.getElementById("filter-ev-min").value   = "";
+            document.getElementById("filter-ev-max").value   = "";
+            document.getElementById("filter-odds-min").value = "";
+            document.getElementById("filter-odds-max").value = "";
+            document.getElementById("filter-prob-min").value = 0;
+            document.getElementById("filter-prob-min-value").textContent = "0%";
+            document.getElementById("filter-safe-mode").checked = false;
+            updateTabUI(tabs, activeTab);
+            updateNavUI(activeTab);
+            applyFilters();
+            return;
+          }
+          const tabBtn = e.target.closest("[data-tab]");
+          if (tabBtn) { activateTab(tabBtn.dataset.tab); return; }
           const btn = e.target.closest("[data-bet-type]");
           if (btn) {
             activeBetType = btn.dataset.betType;
@@ -4983,6 +5208,15 @@
             applyFilters();
           }
         });
+
+        ["filter-ev-min","filter-ev-max","filter-odds-min","filter-odds-max"].forEach(id => {
+          document.getElementById(id).addEventListener("input", syncAdvFilters);
+        });
+        document.getElementById("filter-prob-min").addEventListener("input", e => {
+          document.getElementById("filter-prob-min-value").textContent = e.target.value + "%";
+          syncAdvFilters();
+        });
+        document.getElementById("filter-safe-mode").addEventListener("change", syncAdvFilters);
 
         let debounceTimer;
         document.getElementById("team-search").addEventListener("input", e => {
@@ -5019,8 +5253,6 @@
         const btn = e.target.closest("[data-tab]");
         if (btn) activateTab(btn.dataset.tab);
       }
-      document.getElementById("league-bar").addEventListener("click", handleTabClick);
-
       updateTabUI(tabs, activeTab);
       buildFilterBar();
       applyFilters();
