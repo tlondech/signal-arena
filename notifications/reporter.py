@@ -22,7 +22,7 @@ _DATA_SCRIPT_RE = re.compile(
 def write_report_json(value_bets: list[dict], history: list[dict], path: str = "data/latest_report.json") -> None:
     """
     Writes value bets + history + metadata to a JSON file AND embeds the data
-    directly into report.html so it works when opened as a file:// URL.
+    directly into index.html so it works when opened as a file:// URL.
     """
     payload = {
         "generated_at": datetime.now().isoformat(),
@@ -38,8 +38,8 @@ def write_report_json(value_bets: list[dict], history: list[dict], path: str = "
     out.write_text(json_str, encoding="utf-8")
     logger.info("Report written to %s", path)
 
-    # Embed the data directly into report.html
-    html_path = Path("report.html")
+    # Embed the data directly into index.html
+    html_path = Path("index.html")
     if html_path.exists():
         html = html_path.read_text(encoding="utf-8")
         html = _DATA_SCRIPT_RE.sub(
@@ -47,13 +47,13 @@ def write_report_json(value_bets: list[dict], history: list[dict], path: str = "
             html,
         )
         html_path.write_text(html, encoding="utf-8")
-        logger.info("Data embedded into report.html")
+        logger.info("Data embedded into index.html")
     else:
-        logger.warning("report.html not found — skipping HTML embed.")
+        logger.warning("index.html not found — skipping HTML embed.")
 
 
-def open_report(html_path: str = "report.html") -> None:
-    """Opens report.html in the default browser."""
+def open_report(html_path: str = "index.html") -> None:
+    """Opens index.html in the default browser."""
     abs_path = Path(html_path).resolve()
     url = abs_path.as_uri()
     logger.info("Opening report in browser: %s", url)

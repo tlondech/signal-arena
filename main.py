@@ -10,7 +10,7 @@ Pipeline (per enabled league):
   5. Upsert fixtures into SQLite
   6. Build Poisson features per match
   7. Calculate Expected Value → collect value bets
-  8. Merge all leagues, write report JSON + open report.html in browser
+  8. Merge all leagues, write report JSON + open index.html in browser
 """
 
 import argparse

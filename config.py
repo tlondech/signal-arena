@@ -71,7 +71,7 @@ class Config:
     team_map_path: str = "data/team_name_map.json"
     crest_map_path: str = "data/crest_map.json"
     report_json_path: str = "data/latest_report.json"
-    report_html_path: str = "report.html"
+    report_html_path: str = "index.html"
     log_dir: str = "logs"
 
 
