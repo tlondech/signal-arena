@@ -1,4 +1,5 @@
 .env
+*.db
 data/*.db
 data/latest_report.json
 logs/
