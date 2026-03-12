@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from config import LeagueConfig, _current_season, load_config
 from db.schema import BetHistory, Fixture, Match, Odds, init_db
-from extractors.odds import OddsAPIClient, OddsAPIError
+from extractors.odds import OddsAPIClient
 from extractors.footballdata_client import FootballDataClient, FootballDataError
 from extractors.footballdataorg_client import FootballDataOrgClient, FootballDataOrgError
 from models.evaluator import evaluate_match
@@ -341,11 +341,7 @@ def run_league_pipeline(
             odds_format=cfg.odds_format,
             totals_bookmakers=cfg.odds_totals_bookmakers,
         )
-        try:
-            upcoming_events = odds_client.fetch_upcoming_odds()
-        except OddsAPIError as e:
-            logger.error("[%s] Failed to fetch odds: %s — skipping league.", league.display_name, e)
-            return []
+        upcoming_events = odds_client.fetch_upcoming_odds()
 
         if not upcoming_events:
             logger.debug("[%s] No upcoming matches with Winamax odds — skipping.", league.key)
@@ -621,6 +617,10 @@ def save_bets_to_history(session, match_bets_list: list[dict], recorded_date: st
                 outcome=b["outcome"],
             ).first()
             if exists:
+                if not exists.settled:
+                    exists.odds      = b["odds"]
+                    exists.true_prob = b["true_prob"]
+                    exists.ev        = b["ev"]
                 continue
             session.add(BetHistory(
                 recorded_date=recorded_date,
@@ -758,11 +758,12 @@ def run_pipeline(force: bool = False) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Betting Recommendation Engine")
     parser.add_argument("--force", action="store_true", help="Re-fetch even if already run today")
+    parser.add_argument("--fetch", action="store_true", help="Always fetch fresh data from external APIs (use in CI / scheduled runs)")
     args = parser.parse_args()
 
     logger.info("══ Betting Engine ══  %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     try:
-        run_pipeline(force=args.force)
+        run_pipeline(force=args.force or args.fetch)
     except Exception as e:
         logger.exception("Unhandled error in pipeline: %s", e)
         raise
