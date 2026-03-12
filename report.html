@@ -41,35 +41,32 @@
 }
 </script>
 
-<div class="max-w-7xl mx-auto px-4 py-6">
+<!-- Full-width sticky top nav -->
+<header class="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+  <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+    <h1 class="text-lg font-bold tracking-tight">📊 Daily Value Bets</h1>
+    <nav class="flex items-center gap-6">
+      <button id="nav-dashboard" onclick="window._activateTab && window._activateTab('all')"
+        class="px-1 py-2 text-sm font-semibold text-gray-900 dark:text-white border-b-2 border-blue-600 transition-colors">Dashboard</button>
+      <button id="nav-history" onclick="window._activateTab && window._activateTab('__history__')"
+        class="px-1 py-2 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">History</button>
+    </nav>
+  </div>
+</header>
 
-  <!-- Header -->
-  <header class="mb-6 flex items-start justify-between">
-    <div>
-      <h1 class="text-2xl font-bold tracking-tight">📊 Daily Value Bets</h1>
-    </div>
-    <span id="generated-at" class="text-xs text-gray-400 dark:text-gray-500 mt-1 whitespace-nowrap"></span>
-  </header>
+<div class="max-w-6xl mx-auto px-4 py-6">
 
   <!-- Error banner -->
   <div id="error-msg" class="hidden mb-4 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-800 rounded-xl px-5 py-4 text-sm"></div>
 
-  <!-- Mobile filter bar (hidden on md+) -->
-  <div id="tab-bar" class="md:hidden flex gap-2 overflow-x-auto no-scrollbar pb-3 mb-4"></div>
-
-  <!-- Bet type + team filters -->
-  <div id="filter-bar" class="mb-4 flex flex-wrap items-center gap-3"></div>
-
-  <!-- Main two-column layout -->
-  <div class="md:flex md:items-start md:gap-6">
-
-    <!-- Sidebar (desktop only) -->
-    <aside id="sidebar" class="hidden md:flex md:flex-col md:w-44 shrink-0 gap-1 sticky top-6"></aside>
-
-    <!-- Cards feed -->
-    <main id="container" class="flex-1 min-w-0 flex flex-col gap-3"></main>
-
+  <!-- Sticky filter area: league row + bet type row -->
+  <div id="filter-wrapper" class="sticky top-14 z-10 -mx-4 px-4 backdrop-blur-sm bg-gray-100/80 dark:bg-gray-950/80 border-b border-gray-200 dark:border-gray-800">
+    <div id="league-bar" class="flex gap-2 overflow-x-auto no-scrollbar pt-3 pb-2"></div>
+    <div id="filter-bar" class="flex flex-wrap items-center gap-3 pb-3"></div>
   </div>
+
+  <!-- Cards feed -->
+  <main id="container" class="flex flex-col gap-3 mt-3"></main>
 
   <footer id="footer" class="mt-8 text-right text-xs text-gray-400 dark:text-gray-600"></footer>
 
@@ -382,10 +379,9 @@
   }
 
   function updateTabUI(tabs, activeKey) {
-    const sidebar = document.getElementById("sidebar");
-    const tabBar  = document.getElementById("tab-bar");
-    sidebar.innerHTML = tabs.map(t => tabBtnHtml(t, false, t.key === activeKey)).join("");
-    tabBar.innerHTML  = tabs.map(t => tabBtnHtml(t, true,  t.key === activeKey)).join("");
+    const leagueBar  = document.getElementById("league-bar");
+    const leagueTabs = tabs.filter(t => t.key !== "__history__");
+    leagueBar.innerHTML = leagueTabs.map(t => tabBtnHtml(t, true, t.key === activeKey)).join("");
   }
 
   // ---------------------------------------------------------------------------
@@ -501,7 +497,6 @@
             <div><span class="font-medium">${escHtml(h.home_team)}</span>
             <span class="text-gray-400 dark:text-gray-500 mx-1 text-xs">vs</span>
             <span class="font-medium">${escHtml(h.away_team)}</span></div>
-            ${h.stage ? `<div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">${escHtml(h.stage)}</div>` : ""}
           </td>
           <td class="py-2 px-4">
             <span class="inline-block bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-semibold px-2 py-0.5 rounded">${escHtml(h.outcome_label)}</span>
@@ -663,8 +658,6 @@
 
   function loadReport() {
     const container = document.getElementById("container");
-    const sidebar   = document.getElementById("sidebar");
-    const tabBar    = document.getElementById("tab-bar");
     const errorMsg  = document.getElementById("error-msg");
     const footer    = document.getElementById("footer");
 
@@ -722,6 +715,7 @@
       let activeTab = "all";
       let activeBetType = "all";
       let activeTeamSearch = "";
+      let currentTabMatches = [];
 
       const BET_TYPES = [
         { key: "all",       label: "All Types" },
@@ -733,13 +727,13 @@
       ];
 
       function applyFilters() {
-        const filterBar = document.getElementById("filter-bar");
+        const filterWrapper = document.getElementById("filter-wrapper");
         if (activeTab === "__history__") {
-          if (filterBar) filterBar.classList.add("hidden");
+          if (filterWrapper) filterWrapper.classList.add("hidden");
           renderHistory(history, container);
           return;
         }
-        if (filterBar) filterBar.classList.remove("hidden");
+        if (filterWrapper) filterWrapper.classList.remove("hidden");
 
         const tab = tabs.find(t => t.key === activeTab);
         let matches = tab ? tab.bets : [];
@@ -752,6 +746,9 @@
           );
         }
 
+        currentTabMatches = matches;
+        updateBetTypePills(matches);
+
         if (activeBetType !== "all") {
           matches = matches
             .map(m => ({ ...m, bets: m.bets.filter(b => b.outcome === activeBetType) }))
@@ -761,33 +758,33 @@
         renderBetList(matches, container);
       }
 
+      function updateBetTypePills(matches) {
+        const pContainer = document.getElementById("bet-type-pills");
+        if (!pContainer) return;
+        pContainer.innerHTML = BET_TYPES.map(t => {
+          const isActive = t.key === activeBetType;
+          const count = t.key === "all"
+            ? matches.length
+            : matches.filter(m => m.bets.some(b => b.outcome === t.key)).length;
+          const activeClasses  = "bg-blue-600 border-blue-600 text-white";
+          const defaultClasses = "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-blue-500 dark:hover:border-blue-500 hover:text-gray-900 dark:hover:text-gray-100";
+          const countClasses   = isActive ? "bg-white/25 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400";
+          return `<button data-bet-type="${escHtml(t.key)}"
+            class="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold border transition-colors ${isActive ? activeClasses : defaultClasses}">
+            <span>${escHtml(t.label)}</span>
+            <span class="text-xs px-1.5 py-0.5 rounded-full ${countClasses}">${count}</span>
+          </button>`;
+        }).join("");
+      }
+
       function updateBetTypeUI() {
-        document.querySelectorAll("[data-bet-type]").forEach(btn => {
-          const isActive = btn.dataset.betType === activeBetType;
-          btn.className = `px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-            isActive
-              ? "bg-blue-600 text-white"
-              : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-          }`;
-        });
+        updateBetTypePills(currentTabMatches);
       }
 
       function buildFilterBar() {
         const filterBar = document.getElementById("filter-bar");
-        const pillsHtml = BET_TYPES.map(t => {
-          const isActive = t.key === activeBetType;
-          return `<button data-bet-type="${escHtml(t.key)}"
-            class="px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-              isActive
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-            }">${escHtml(t.label)}</button>`;
-        }).join("");
         filterBar.innerHTML = `
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mr-1">Bet type</span>
-            ${pillsHtml}
-          </div>
+          <div id="bet-type-pills" class="flex items-center gap-2 flex-wrap"></div>
           <input id="team-search" type="text" placeholder="Search team…"
             class="px-3 py-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value="${escHtml(activeTeamSearch)}">`;
@@ -811,9 +808,23 @@
         });
       }
 
+      function updateNavUI(activeKey) {
+        const dashBtn = document.getElementById("nav-dashboard");
+        const histBtn = document.getElementById("nav-history");
+        if (!dashBtn || !histBtn) return;
+        const isHistory = activeKey === "__history__";
+        dashBtn.className = `px-1 py-2 text-sm font-semibold transition-colors ${
+          isHistory ? "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                    : "text-gray-900 dark:text-white border-b-2 border-blue-600"}`;
+        histBtn.className = `px-1 py-2 text-sm font-semibold transition-colors ${
+          isHistory ? "text-gray-900 dark:text-white border-b-2 border-blue-600"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"}`;
+      }
+
       function activateTab(tabKey) {
         activeTab = tabKey;
         updateTabUI(tabs, activeTab);
+        updateNavUI(tabKey);
         applyFilters();
       }
 
@@ -822,12 +833,12 @@
         const btn = e.target.closest("[data-tab]");
         if (btn) activateTab(btn.dataset.tab);
       }
-      sidebar.addEventListener("click", handleTabClick);
-      tabBar.addEventListener("click", handleTabClick);
+      document.getElementById("league-bar").addEventListener("click", handleTabClick);
 
       updateTabUI(tabs, activeTab);
       buildFilterBar();
       applyFilters();
+      window._activateTab = activateTab;
 
       if (data.generated_at) {
         const gen = new Date(data.generated_at);
