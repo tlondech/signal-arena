@@ -18,23 +18,63 @@
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     /* Column header info tooltips */
     .col-tip { position: relative; display: inline-flex; align-items: center; gap: 3px; cursor: help; }
+
+    /* 📱 MOBILE FIRST: Fixed 'Toast' at the bottom of the screen */
     .col-tip .tip {
-      position: absolute; bottom: calc(100% + 6px); right: 0;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translate(-50%, 10px);
       background: #1f2937; color: #f9fafb;
-      font-size: 0.72rem; font-weight: 400; text-transform: none; letter-spacing: 0;
-      padding: 8px 12px; border-radius: 7px; white-space: normal;
-      pointer-events: none; opacity: 0; transition: opacity 0.15s;
-      z-index: 20; box-shadow: 0 4px 14px rgba(0,0,0,0.35);
-      width: 280px; text-align: left; line-height: 1.5;
+      font-size: 0.75rem; font-weight: 500; text-transform: none; letter-spacing: 0;
+      padding: 12px 16px; border-radius: 10px; white-space: normal;
+      pointer-events: none; opacity: 0; transition: all 0.2s ease-out;
+      z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      width: calc(100vw - 32px); max-width: 320px;
+      text-align: center; line-height: 1.5;
     }
-    .col-tip:hover .tip { opacity: 1; }
+
+    /* Reveal states for Mobile Toast */
+    .col-tip.active .tip { opacity: 1; transform: translate(-50%, 0); }
+    @media (hover: hover) {
+      .col-tip:hover .tip { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    /* 💻 DESKTOP OVERRIDE: Revert to classic floating tooltips */
+    @media (min-width: 768px) {
+      .col-tip .tip {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        top: auto;
+        /* 1. ANCHOR LEFT BY DEFAULT (Fixes BTTS bleeding left) */
+        left: 0;
+        transform: translateY(4px);
+        width: max-content;
+        max-width: 300px; /* Safe width for desktop */
+        text-align: left;
+        padding: 8px 12px;
+        border-radius: 7px;
+      }
+
+      /* Reveal states for Desktop */
+      .col-tip.active .tip { transform: translateY(0); }
+      @media (hover: hover) {
+        .col-tip:hover .tip { transform: translateY(0); }
+      }
+
+      /* 2. ANCHOR RIGHT FOR DATA COLUMNS (Fixes EV/Odds bleeding right) */
+      .col-tip.justify-end .tip {
+        left: auto;
+        right: 0; /* Locks the right side of the tooltip to the right side of the text */
+      }
+    }
   </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
 
 <script id="report-data" type="application/json">
 {
-  "generated_at": "2026-03-12T17:26:05.059203",
+  "generated_at": "2026-03-12T17:48:37.427018",
   "date": "2026-03-12",
   "value_bets": [
     {
@@ -4228,17 +4268,17 @@
 </script>
 
 <!-- Full-width sticky top nav -->
-<header class="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-  <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+<header class="sticky top-0 z-20 h-14 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+  <div class="max-w-6xl mx-auto px-4 h-full flex items-center justify-between w-full">
     <div class="flex items-baseline gap-3">
-      <h1 class="text-lg font-bold tracking-tight">📊 Daily Value Bets</h1>
-      <span id="generated-at" class="text-xs text-gray-400 dark:text-gray-500"></span>
+      <h1 class="text-lg font-bold tracking-tight whitespace-nowrap">📊 Daily Value Bets</h1>
+      <span id="generated-at" class="hidden md:block text-xs text-gray-400 dark:text-gray-500"></span>
     </div>
-    <nav class="flex items-center gap-6">
+    <nav class="flex items-center gap-6 h-full">
       <button id="nav-dashboard" onclick="window._activateTab && window._activateTab('all')"
-        class="px-1 py-2 text-sm font-semibold text-gray-900 dark:text-white border-b-2 border-blue-600 transition-colors">Dashboard</button>
+        class="h-full px-1 text-sm font-semibold text-gray-900 dark:text-white border-b-2 border-blue-600 transition-colors mt-0.5">Dashboard</button>
       <button id="nav-history" onclick="window._activateTab && window._activateTab('__history__')"
-        class="px-1 py-2 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">History</button>
+        class="h-full px-1 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 border-b-2 border-transparent transition-colors mt-0.5">History</button>
     </nav>
   </div>
 </header>
@@ -4254,7 +4294,11 @@
   </div>
 
   <!-- Cards feed -->
-  <main id="container" class="flex flex-col gap-3 mt-3"></main>
+  <div class="md:hidden mt-4 mb-1 text-center">
+    <p id="mobile-generated-at" class="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider"></p>
+  </div>
+
+  <main id="container" class="flex flex-col gap-3 md:mt-3"></main>
 
   <footer id="footer" class="hidden"></footer>
 
@@ -4262,11 +4306,11 @@
 
 <!-- Advanced Filters Backdrop -->
 <div id="filters-backdrop"
-  class="hidden fixed inset-0 bg-black/40 z-40 transition-opacity"></div>
+  class="hidden fixed inset-0 bg-black/50 z-40 transition-opacity"></div>
 
 <!-- Advanced Filters Drawer -->
 <aside id="filters-drawer"
-  class="fixed top-0 right-0 h-full w-80 z-50 bg-white dark:bg-gray-900 shadow-2xl translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+  class="fixed inset-y-0 right-0 z-50 h-full overflow-y-auto w-[85vw] max-w-sm bg-white dark:bg-gray-900 shadow-2xl translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
 
   <!-- Header -->
   <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
@@ -4297,16 +4341,16 @@
     <!-- Expected Value (EV) -->
     <div>
       <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Expected Value (EV)</label>
-      <div class="flex items-center gap-3">
-        <div class="flex-1">
+      <div class="grid grid-cols-2 gap-3 w-full">
+        <div class="min-w-0">
           <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Min %</label>
           <input id="filter-ev-min" type="number" placeholder="0" min="-100" max="100" step="0.1"
-            class="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            class="w-full min-w-0 px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        <div class="flex-1">
+        <div class="min-w-0">
           <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Max %</label>
           <input id="filter-ev-max" type="number" placeholder="100" min="-100" max="100" step="0.1"
-            class="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            class="w-full min-w-0 px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
       </div>
     </div>
@@ -4314,16 +4358,16 @@
     <!-- Odds Range -->
     <div>
       <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Odds Range</label>
-      <div class="flex items-center gap-3">
-        <div class="flex-1">
+      <div class="grid grid-cols-2 gap-3 w-full">
+        <div class="min-w-0">
           <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Min Odds</label>
           <input id="filter-odds-min" type="number" placeholder="1.00" min="1" step="0.01"
-            class="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            class="w-full min-w-0 px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        <div class="flex-1">
+        <div class="min-w-0">
           <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Max Odds</label>
           <input id="filter-odds-max" type="number" placeholder="10.00" min="1" step="0.01"
-            class="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            class="w-full min-w-0 px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
       </div>
     </div>
@@ -4523,7 +4567,7 @@
     const awayFormHtml = Array.isArray(match.away_form) && match.away_form.length
       ? match.away_form.map(formBubble).join("")
       : "";
-    const recentLabel = `<span class="ml-2 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-0.5"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>Recent</span>`;
+    const recentLabel = `<span class="hidden md:flex ml-2 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider items-center gap-0.5"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>Recent</span>`;
     const hasForm = !!(homeFormHtml || awayFormHtml);
 
     return `
@@ -4536,18 +4580,18 @@
               ${leagueName
                 ? `<span class="inline-block ${leagueColor(match.league_key)} text-white text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-2">${escHtml(leagueName)}</span>`
                 : ""}${stageBadge}${secondLegBadge}
-              <div class="grid grid-cols-[max-content_max-content_1fr] items-center gap-x-3 gap-y-1">
-                <div class="flex items-center gap-1 text-base font-semibold">
+              <div class="grid grid-cols-1 md:grid-cols-[max-content_max-content_1fr] md:items-center gap-x-3 gap-y-1">
+                <div class="order-1 md:order-none flex items-center gap-1 text-base font-semibold">
                   ${homeRank}${homeCrest}${escHtml(match.home_team)}
                 </div>
-                <div class="text-xs font-bold text-gray-400 dark:text-gray-500 text-center">vs</div>
-                <div class="flex items-center gap-1 text-base font-semibold">
+                <div class="hidden md:block text-xs font-bold text-gray-400 dark:text-gray-500 text-center">vs</div>
+                <div class="order-3 md:order-none flex items-center gap-1 text-base font-semibold">
                   ${awayRank}${awayCrest}${escHtml(match.away_team)}${h2hBadge ? ` ${h2hBadge}` : ""}
                 </div>
                 ${hasForm ? `
-                <div class="flex items-center gap-0.5">${homeFormHtml}</div>
-                <div class="text-gray-300 dark:text-gray-700 select-none text-center">·</div>
-                <div class="flex items-center gap-0.5">${awayFormHtml}${recentLabel}</div>
+                <div class="order-2 md:order-none flex items-center gap-0.5 flex-wrap">${homeFormHtml}</div>
+                <div class="hidden md:block text-gray-300 dark:text-gray-700 select-none text-center">·</div>
+                <div class="order-4 md:order-none flex items-center gap-0.5 flex-wrap">${awayFormHtml}${recentLabel}</div>
                 ` : ""}
               </div>
               ${fatigueRow}
@@ -4827,8 +4871,9 @@
         ${groupMap.get(key).map(h => historyRow(h)).join("")}`).join("");
 
       return `
-        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-x-auto">
-          <table class="w-full text-left">
+        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl">
+          <div class="w-full overflow-x-auto no-scrollbar">
+          <table class="min-w-max w-full text-left">
             <thead>
               <tr class="border-b border-gray-100 dark:border-gray-800 text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                 <th class="px-4 py-2 font-semibold">League</th>
@@ -4845,6 +4890,7 @@
               ${bodyRows}
             </tbody>
           </table>
+          </div>
         </div>`;
     }
 
@@ -5161,10 +5207,10 @@
         const filterBar = document.getElementById("filter-bar");
         filterBar.innerHTML = `
           <input id="team-search" type="text" placeholder="Search team…"
-            class="px-3 py-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full md:w-auto px-3 py-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value="${escHtml(activeTeamSearch)}">
           <button id="open-filters-btn"
-            class="flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+            class="w-full md:w-auto flex justify-center items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z"/>
             </svg>
@@ -5172,7 +5218,7 @@
             <span id="filters-count-badge" style="display:none" class="inline-flex items-center justify-center text-xs font-bold bg-blue-600 text-white rounded-full w-4 h-4">0</span>
           </button>
           <button id="clear-filters-btn" disabled
-            class="flex items-center gap-1 px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-400 dark:text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            class="w-full md:w-auto flex justify-center items-center gap-1 px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-400 dark:text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
             </svg>
@@ -5183,10 +5229,12 @@
         function openDrawer() {
           document.getElementById("filters-drawer").classList.remove("translate-x-full");
           document.getElementById("filters-backdrop").classList.remove("hidden");
+          document.body.classList.add("overflow-hidden");
         }
         function closeDrawer() {
           document.getElementById("filters-drawer").classList.add("translate-x-full");
           document.getElementById("filters-backdrop").classList.add("hidden");
+          document.body.classList.remove("overflow-hidden");
         }
 
         document.addEventListener("click", e => {
@@ -5283,6 +5331,9 @@
         footer.textContent = `Generated ${label}`;
         const genAt = document.getElementById("generated-at");
         if (genAt) genAt.textContent = `Generated ${label}`;
+
+        const mobileGenAt = document.getElementById("mobile-generated-at");
+        if (mobileGenAt) mobileGenAt.textContent = `Generated ${label}`;
       }
 
     } catch (err) {
@@ -5293,6 +5344,19 @@
   }
 
   loadReport();
+</script>
+<script>
+  document.addEventListener('click', function(e) {
+    const colTip = e.target.closest('.col-tip');
+    const active = document.querySelectorAll('.col-tip.active');
+    if (colTip) {
+      const wasActive = colTip.classList.contains('active');
+      active.forEach(el => el.classList.remove('active'));
+      if (!wasActive) colTip.classList.add('active');
+    } else {
+      active.forEach(el => el.classList.remove('active'));
+    }
+  });
 </script>
 </body>
 </html>
