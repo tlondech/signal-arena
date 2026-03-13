@@ -74,7 +74,7 @@
 
 <script id="report-data" type="application/json">
 {
-  "generated_at": "2026-03-13T15:46:48.517942+01:00",
+  "generated_at": "2026-03-13T15:53:26.146050+01:00",
   "date": "2026-03-13",
   "value_bets": [
     {
@@ -6133,6 +6133,9 @@
         class="h-full px-1 text-sm font-semibold text-gray-900 dark:text-white border-b-2 border-blue-600 transition-colors mt-0.5">Dashboard</button>
       <button id="nav-history" onclick="window._activateTab && window._activateTab('__history__')"
         class="h-full px-1 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 border-b-2 border-transparent transition-colors mt-0.5">History</button>
+      <button onclick="document.getElementById('legend-modal').classList.remove('hidden')"
+        class="h-7 w-7 flex items-center justify-center rounded-full text-xs font-bold text-gray-400 dark:text-gray-500 border border-gray-300 dark:border-gray-700 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+        title="Bet types legend">?</button>
     </nav>
   </div>
 </header>
@@ -6156,6 +6159,36 @@
 
   <footer id="footer" class="hidden"></footer>
 
+</div>
+
+<!-- Legend Modal -->
+<div id="legend-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+  onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-sm p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-bold text-gray-900 dark:text-white">Bet Types</h2>
+      <button onclick="document.getElementById('legend-modal').classList.add('hidden')"
+        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">&times;</button>
+    </div>
+    <dl class="space-y-3 text-sm">
+      <div>
+        <dt class="font-semibold text-gray-800 dark:text-gray-100">Home Win / Draw / Away Win</dt>
+        <dd class="text-gray-500 dark:text-gray-400 mt-0.5">1X2 market — back a specific full-time result.</dd>
+      </div>
+      <div>
+        <dt class="font-semibold text-gray-800 dark:text-gray-100">Over 2.5 / Under 2.5</dt>
+        <dd class="text-gray-500 dark:text-gray-400 mt-0.5">Total goals market — over means 3+ goals, under means 2 or fewer.</dd>
+      </div>
+      <div>
+        <dt class="font-semibold text-gray-800 dark:text-gray-100">BTTS Yes</dt>
+        <dd class="text-gray-500 dark:text-gray-400 mt-0.5">Both Teams To Score — both sides net at least one goal.</dd>
+      </div>
+      <div>
+        <dt class="font-semibold text-gray-800 dark:text-gray-100">BTTS No</dt>
+        <dd class="text-gray-500 dark:text-gray-400 mt-0.5">Both Teams To Score No — at least one team keeps a clean sheet.</dd>
+      </div>
+    </dl>
+  </div>
 </div>
 
 <!-- Advanced Filters Backdrop -->
