@@ -109,7 +109,7 @@ class FootballDataOrgClient:
         self, name_map: dict, league_key: str
     ) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
         """
-        Returns (stage_map, crest_map, raw_stage_map) for SCHEDULED matches in this competition/season.
+        Returns (stage_map, crest_map, raw_stage_map) for SCHEDULED/TIMED matches in this competition/season.
         stage_map:     {"{home_canonical}|{away_canonical}": stage_label}
         crest_map:     {canonical_name: crest_url}
         raw_stage_map: {"{home_canonical}|{away_canonical}": raw_stage_key}  (e.g. "ROUND_OF_16")
@@ -119,7 +119,7 @@ class FootballDataOrgClient:
 
         url = (
             f"{self.BASE_URL}/competitions/{self.competition}/matches"
-            f"?status=SCHEDULED&season={self.season}"
+            f"?status=SCHEDULED,TIMED&season={self.season}"
         )
         req = urllib.request.Request(url, headers={"X-Auth-Token": self.api_key})
         self._throttle()

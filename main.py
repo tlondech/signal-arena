@@ -247,13 +247,25 @@ def build_leg2_map(
         home_c = resolve_team_name(event["home_team"], name_map, league_key)
         away_c = resolve_team_name(event["away_team"], name_map, league_key)
         if not home_c or not away_c:
+            logger.debug(
+                "build_leg2_map: skipping '%s' vs '%s' — name resolution failed (home_c=%r, away_c=%r)",
+                event["home_team"], event["away_team"], home_c, away_c,
+            )
             continue
         raw_stage = raw_stage_map.get(f"{home_c}|{away_c}", "")
         if raw_stage not in UCL_KNOCKOUT_STAGES:
+            logger.debug(
+                "build_leg2_map: skipping %s vs %s — stage %r not in UCL_KNOCKOUT_STAGES (raw_stage_map has %d entries)",
+                home_c, away_c, raw_stage, len(raw_stage_map),
+            )
             continue
         # Leg 2 home team was AWAY in Leg 1 → look for reversed fixture
         leg1 = finished_index.get((away_c, home_c))
         if leg1 is None:
+            logger.debug(
+                "build_leg2_map: skipping %s vs %s — leg 1 (%s vs %s) not found in finished_index (%d entries)",
+                home_c, away_c, away_c, home_c, len(finished_index),
+            )
             continue
         agg_home = leg1["away_goals"]   # Leg 2 home team's Leg 1 goals (scored as away)
         agg_away = leg1["home_goals"]   # Leg 2 away team's Leg 1 goals (scored as home)
@@ -759,7 +771,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Betting Recommendation Engine")
     parser.add_argument("--force", action="store_true", help="Re-fetch even if already run today")
     parser.add_argument("--fetch", action="store_true", help="Always fetch fresh data from external APIs (use in CI / scheduled runs)")
+    parser.add_argument("--debug", action="store_true", help="Enable DEBUG-level logging")
     args = parser.parse_args()
+
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     logger.info("══ Betting Engine ══  %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     try:
