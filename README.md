@@ -19,7 +19,7 @@ Bets are recommended when EV exceeds a configurable threshold (default: 5%).
 ### Supported Markets
 - 1X2 (Home Win / Draw / Away Win)
 - Over/Under 2.5 goals
-- Both Teams to Score (BTTS)
+- Both Teams to Score (BTTS) — Yes/No
 
 ### Supported Leagues
 
@@ -66,6 +66,14 @@ The report opens automatically in your browser. Results are also saved to `data/
 
 ---
 
+## Automated Daily Updates
+
+A GitHub Actions workflow (`.github/workflows/daily_update.yml`) runs every 6 hours and commits the updated `index.html` directly to the repository. This lets you host the report as a static GitHub Pages site with no manual intervention.
+
+The workflow can also be triggered manually via `workflow_dispatch`.
+
+---
+
 ## Usage
 
 ```bash
@@ -74,6 +82,12 @@ python main.py
 
 # Force re-fetch odds and fixtures regardless of cache
 python main.py --force
+
+# Always fetch fresh data from external APIs (use in CI / scheduled runs)
+python main.py --fetch
+
+# Enable debug-level logging
+python main.py --debug
 ```
 
 ---
@@ -91,6 +105,7 @@ All settings can be overridden via `.env`:
 | `ROLLING_WINDOW` | `5` | Number of recent matches for rolling stats |
 | `POISSON_MAX_GOALS` | `8` | Score matrix size (0–N goals) |
 | `ODDS_TOTALS_BOOKMAKERS` | `""` | Fallback bookmaker for O/U 2.5 when Winamax has no line, e.g. `pinnacle` |
+| `ODDS_BTTS_BOOKMAKERS` | `williamhill,pinnacle` | Bookmakers to query for BTTS (Yes/No) odds |
 
 ---
 
@@ -102,9 +117,13 @@ All settings can be overridden via `.env`:
 ├── config.py                        # Configuration and league definitions
 ├── requirements.txt
 ├── .env.example
+├── index.html                       # Generated report (committed by CI for GitHub Pages)
+│
+├── .github/workflows/
+│   └── daily_update.yml             # Runs every 6 hours, auto-commits index.html
 │
 ├── extractors/
-│   ├── odds.py                      # The Odds API client
+│   ├── odds.py                      # The Odds API client (1X2, O/U, BTTS)
 │   ├── footballdata_client.py       # football-data.co.uk CSV client (domestic leagues)
 │   ├── footballdataorg_client.py    # football-data.org API client (UCL)
 │   ├── soccerdata_client.py         # Alternative data source
@@ -152,12 +171,14 @@ A positive EV indicates the model estimates a higher probability than the bookma
 
 ## Output
 
-### HTML Report (`report.html`)
+### HTML Report (`index.html`)
 Interactive dashboard showing:
 - Today's value bets grouped by league, with odds, true probability, and EV
 - Team form, standings position, rest days
 - UCL aggregate context for second legs
 - Bet history with settled outcomes (won/lost)
+- Filter drawer to narrow bets by league, market, or EV range
+- Bet types modal explaining each market in the page header
 
 ### JSON Report (`data/latest_report.json`)
 Machine-readable version of the same data, suitable for further processing or integration.
