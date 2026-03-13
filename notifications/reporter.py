@@ -31,6 +31,8 @@ def write_report_json(value_bets: list[dict], history: list[dict], path: str = "
         "history": history,
     }
     json_str = json.dumps(payload, indent=2, ensure_ascii=False)
+    # Escape </ so JSON embedded in a <script> block can't prematurely close it
+    json_str_safe = json_str.replace("</", r"<\/")
 
     # Write the standalone JSON file (kept for reference / future use)
     out = Path(path)
@@ -43,7 +45,7 @@ def write_report_json(value_bets: list[dict], history: list[dict], path: str = "
     if html_path.exists():
         html = html_path.read_text(encoding="utf-8")
         html = _DATA_SCRIPT_RE.sub(
-            lambda m: f"{m.group(1)}\n{json_str}\n{m.group(3)}",
+            lambda m: f"{m.group(1)}\n{json_str_safe}\n{m.group(3)}",
             html,
         )
         html_path.write_text(html, encoding="utf-8")
