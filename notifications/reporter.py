@@ -25,7 +25,7 @@ def write_report_json(value_bets: list[dict], history: list[dict], path: str = "
     directly into index.html so it works when opened as a file:// URL.
     """
     payload = {
-        "generated_at": datetime.now().isoformat(),
+        "generated_at": datetime.now().astimezone().isoformat(),
         "date": date.today().isoformat(),
         "value_bets": value_bets,
         "history": history,
