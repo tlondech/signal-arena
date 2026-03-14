@@ -166,23 +166,36 @@
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
       <div id="stat-total"   class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Bets</p>
-        <p class="text-xl font-bold">—</p>
+        <p class="text-base font-bold whitespace-nowrap">—</p>
       </div>
-      <div id="stat-record"  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Record</p>
-        <p class="text-xl font-bold">—</p>
+      <div id="stat-avg-odds" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Avg Odds</p>
+        <p class="text-base font-bold whitespace-nowrap">—</p>
       </div>
-      <div id="stat-winrate" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Win Rate</p>
-        <p class="text-xl font-bold">—</p>
+      <div id="stat-record-combined" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Record &amp; Win%</p>
+        <p class="text-base font-bold whitespace-nowrap">—</p>
       </div>
       <div id="stat-avgev"   class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Avg EV</p>
-        <p class="text-xl font-bold">—</p>
+        <p class="text-base font-bold whitespace-nowrap">—</p>
       </div>
-      <div id="stat-pnl"     class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 sm:col-span-1 col-span-2">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">P&amp;L · ROI</p>
-        <p class="text-xl font-bold">—</p>
+      <div id="stat-pnl"     class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 sm:col-span-1 col-span-2 relative">
+        <div class="flex items-center gap-1 mb-1">
+          <p class="text-xs text-gray-500 dark:text-gray-400">Turnover · P&amp;L · ROI</p>
+          <button id="stat-pnl-info-btn" class="relative text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 leading-none" aria-label="Explain values">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <div id="stat-pnl-tooltip" class="hidden absolute top-full left-0 md:left-auto md:right-0 mt-2 w-56 max-w-[85vw] bg-gray-800 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 shadow-lg z-50 leading-relaxed">
+              <p><span class="font-semibold">Turnover</span> — total staked on settled bets</p>
+              <p class="mt-1"><span class="font-semibold">P&amp;L</span> — profit/loss after all settled bets</p>
+              <p class="mt-1"><span class="font-semibold">ROI</span> — P&amp;L as a % of turnover</p>
+              <p class="mt-1 text-gray-400">Stakes: €5 (odds ≥3), €10 (2–3), €20 (&lt;2)</p>
+            </div>
+          </button>
+        </div>
+        <p class="text-base font-bold whitespace-nowrap">—</p>
       </div>
     </div>
 
@@ -202,6 +215,15 @@
         <thead id="hist-thead" class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/60"></thead>
         <tbody id="hist-tbody"></tbody>
       </table>
+    </div>
+
+    <!-- Infinite scroll sentinel -->
+    <div id="history-sentinel" class="flex items-center justify-center py-6 gap-3">
+      <svg id="history-spinner" class="hidden animate-spin h-5 w-5 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+      </svg>
+      <span id="history-count" class="text-xs text-gray-400"></span>
     </div>
   </div>
 
@@ -301,6 +323,32 @@
         </div>
       </div>
 
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400/90 dark:text-gray-400/90 mb-3">History Stats</p>
+        <div class="space-y-3">
+          <div class="grid grid-cols-[110px_1fr] gap-3 items-start">
+            <span class="text-gray-700 dark:text-gray-300 font-medium mt-0.5">Total Bets</span>
+            <span>All bets in the current filter, including pending.</span>
+          </div>
+          <div class="grid grid-cols-[110px_1fr] gap-3 items-start">
+            <span class="text-gray-700 dark:text-gray-300 font-medium mt-0.5">Avg Odds</span>
+            <span>Mean decimal odds across all bets in the current view.</span>
+          </div>
+          <div class="grid grid-cols-[110px_1fr] gap-3 items-start">
+            <span class="text-gray-700 dark:text-gray-300 font-medium mt-0.5">Record &amp; Win%</span>
+            <span>Settled bets only. Win rate is <span class="text-green-500 font-medium">green</span> when actual wins &ge; the sum of true probabilities (expected wins), and <span class="text-red-500 font-medium">red</span> when below.</span>
+          </div>
+          <div class="grid grid-cols-[110px_1fr] gap-3 items-start">
+            <span class="text-gray-700 dark:text-gray-300 font-medium mt-0.5">Avg EV</span>
+            <span>Mean model edge across all bets in the current view.</span>
+          </div>
+          <div class="grid grid-cols-[110px_1fr] gap-3 items-start">
+            <span class="text-gray-700 dark:text-gray-300 font-medium mt-0.5">Turnover · P&amp;L · ROI</span>
+            <span>Settled bets only, using tiered stakes: €20 (odds &lt;2), €10 (2–3), €5 (&ge;3). P&amp;L and ROI are <span class="text-green-500 font-medium">green</span> when positive, <span class="text-red-500 font-medium">red</span> when negative.</span>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -322,6 +370,12 @@ let teamSearch    = "";
 let histSortCol      = "kickoff";
 let histSortDir      = "desc";
 let histStatusFilter = "settled";
+const HISTORY_PAGE_SIZE = 50;
+let historyPage     = 0;
+let historyTotal    = 0;
+let historyLoaded   = [];
+let historyFetching = false;
+let historyObserver = null;
 
 // ── Helpers ───────────────────────────────────────────────────
 function esc(s) {
@@ -569,7 +623,7 @@ function renderLeaguePills(matches) {
   }
   document.getElementById("league-pills").innerHTML = html;
   document.querySelectorAll(".league-pill").forEach(btn => {
-    btn.addEventListener("click", () => { activeLeague = btn.dataset.league; updateFilterBadge(); renderBetsPanel(); renderHistory(); });
+    btn.addEventListener("click", () => { activeLeague = btn.dataset.league; updateFilterBadge(); renderBetsPanel(); resetHistoryPagination(); });
   });
 }
 
@@ -590,7 +644,7 @@ function renderBetTypePills() {
     `<button class="bet-type-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${activeBetType===t.key?active:inactive}" data-type="${t.key}">${t.label}</button>`
   ).join("");
   document.querySelectorAll(".bet-type-pill").forEach(btn => {
-    btn.addEventListener("click", () => { activeBetType = btn.dataset.type; updateFilterBadge(); renderBetsPanel(); renderHistory(); });
+    btn.addEventListener("click", () => { activeBetType = btn.dataset.type; updateFilterBadge(); renderBetsPanel(); resetHistoryPagination(); });
   });
 }
 
@@ -652,47 +706,82 @@ function stakeFor(odds) {
 }
 
 function updateStatsGrid(filteredData) {
-  const wins   = filteredData.filter(r => r.result === "won");
-  const losses = filteredData.filter(r => r.result === "lost");
+  const wins    = filteredData.filter(r => r.result === "won");
+  const losses  = filteredData.filter(r => r.result === "lost");
   const settled = wins.length + losses.length;
 
-  // Win rate — only counts settled rows
-  const winRate = settled ? (wins.length / settled * 100).toFixed(1) + "%" : "—";
+  // Avg odds — across all rows in the filtered set
+  const avgOdds = filteredData.length
+    ? (filteredData.reduce((s, r) => s + r.odds, 0) / filteredData.length).toFixed(2)
+    : "—";
 
   // Avg EV — across all rows in the filtered set
   const avgEv = filteredData.length
     ? "+" + (filteredData.reduce((s, r) => s + r.ev, 0) / filteredData.length * 100).toFixed(1) + "%"
     : "—";
 
+  // Expected wins — sum of true_prob for settled bets
+  const expectedWins = settled
+    ? [...wins, ...losses].reduce((s, r) => s + (r.true_prob || 0), 0)
+    : 0;
+
+  // Record & Win% — win rate colored vs expected wins
+  const winRatePct = settled ? (wins.length / settled * 100).toFixed(1) : null;
+  const winRateColor = settled
+    ? (wins.length >= expectedWins ? "text-green-500" : "text-red-500")
+    : "";
+
+  // Format: "6W / 8.2EW (33.3%)"
+  const recordHtml = settled
+    ? `${wins.length}W / <span class="text-gray-400 dark:text-gray-500">${expectedWins.toFixed(1)}EW</span> (<span class="${winRateColor}">${winRatePct}%</span>)`
+    : "—";
+
   // P&L and ROI — tiered stake, settled rows only
   const pnl    = wins.reduce((s, r)   => s + (r.odds - 1) * stakeFor(r.odds), 0)
                + losses.reduce((s, r) => s - stakeFor(r.odds), 0);
   const staked = [...wins, ...losses].reduce((s, r) => s + stakeFor(r.odds), 0);
-  const roi    = staked ? (pnl / staked * 100).toFixed(1) + "%" : "—";
-  const pnlStr = staked ? `${pnl >= 0 ? "+" : ""}€${pnl.toFixed(0)} · ${roi}` : "—";
+  const roi    = staked ? (pnl / staked * 100).toFixed(1) : null;
+  const pnlStr = staked
+    ? `€${staked.toFixed(0)} · ${pnl >= 0 ? "+" : ""}€${pnl.toFixed(0)} · ${roi}%`
+    : "—";
 
   const setVal = (id, val) => {
-    const el = document.querySelector(`#${id} p:last-child`);
+    const el = document.querySelector(`#${id} > p:last-child`);
     if (el) el.textContent = val;
   };
+  const setHtml = (id, html) => {
+    const el = document.querySelector(`#${id} > p:last-child`);
+    if (el) el.innerHTML = html;
+  };
   const setColor = (id, positive) => {
-    const el = document.querySelector(`#${id} p:last-child`);
+    const el = document.querySelector(`#${id} > p:last-child`);
     if (!el) return;
     el.classList.remove("text-green-500", "text-red-500");
     if (positive === true)  el.classList.add("text-green-500");
     if (positive === false) el.classList.add("text-red-500");
   };
 
-  setVal("stat-total",   filteredData.length);
-  setVal("stat-record",  `${wins.length}W / ${losses.length}L`);
-  setVal("stat-winrate", winRate);
-  setVal("stat-avgev",   avgEv);
-  setVal("stat-pnl",     pnlStr);
+  setVal("stat-total",    filteredData.length);
+  setVal("stat-avg-odds", avgOdds);
+  setHtml("stat-record-combined", recordHtml);
+  setVal("stat-avgev",    avgEv);
+  setHtml("stat-pnl",     pnlStr);
 
-  // Colour P&L green/red; win rate green if >50%
+  // Colour P&L green/red
   if (staked) setColor("stat-pnl", pnl >= 0);
-  if (settled) setColor("stat-winrate", wins.length / settled > 0.5);
 }
+
+// ── P&L tooltip toggle ─────────────────────────────────────────
+document.addEventListener("click", e => {
+  const btn     = document.getElementById("stat-pnl-info-btn");
+  const tooltip = document.getElementById("stat-pnl-tooltip");
+  if (!btn || !tooltip) return;
+  if (btn.contains(e.target)) {
+    tooltip.classList.toggle("hidden");
+  } else if (!tooltip.contains(e.target)) {
+    tooltip.classList.add("hidden");
+  }
+});
 
 // ── History table ──────────────────────────────────────────────
 const HIST_COLS = [
@@ -708,23 +797,11 @@ const HIST_COLS = [
 ];
 
 function renderHistory() {
-  // Build the visible row set: apply drawer filters first, then status tab
+  // Build the visible row set (drawer filters applied server-side), then status tab
   let allRows = [
     ...histData.map(r => ({...r, _status: r.result === "won" ? "won" : "lost"})),
   ];
-  // Drawer filters
-  if (activeLeague !== "all")
-    allRows = allRows.filter(r => r.league_key === activeLeague);
-  if (activeBetType !== "all")
-    allRows = allRows.filter(r => r.outcome === activeBetType);
-  if (teamSearch) {
-    const q = teamSearch.toLowerCase();
-    allRows = allRows.filter(r =>
-      r.home_team.toLowerCase().includes(q) || r.away_team.toLowerCase().includes(q)
-    );
-  }
-
-  // Counts per tab (after drawer filters)
+  // Counts per tab
   const tabCounts = {
     settled: allRows.length,
     won:     allRows.filter(r => r._status === "won").length,
@@ -907,10 +984,51 @@ async function fetchBets() {
   if (error) throw error;
   return data;
 }
-async function fetchHistory() {
-  const {data,error} = await sb.from("bet_history").select("*").eq("settled",true).order("kickoff",{ascending:false});
+async function fetchHistoryPage(page = 0) {
+  const from = page * HISTORY_PAGE_SIZE;
+  const to   = from + HISTORY_PAGE_SIZE - 1;
+  let q = sb
+    .from("bet_history")
+    .select("*", { count: "exact" })
+    .eq("settled", true)
+    .order("kickoff", { ascending: false })
+    .range(from, to);
+  if (activeLeague  !== "all") q = q.eq("league_key", activeLeague);
+  if (activeBetType !== "all") q = q.eq("outcome",    activeBetType);
+  if (teamSearch)               q = q.or(`home_team.ilike.%${teamSearch}%,away_team.ilike.%${teamSearch}%`);
+  const { data, error, count } = await q;
   if (error) throw error;
-  return data;
+  return { data, count };
+}
+async function resetHistoryPagination() {
+  historyPage     = 0;
+  historyLoaded   = [];
+  historyTotal    = 0;
+  historyFetching = false;
+  const sentinel = document.getElementById("history-sentinel");
+  if (historyObserver && sentinel) historyObserver.observe(sentinel);
+  const { data, count } = await fetchHistoryPage(0);
+  historyTotal  = count;
+  historyLoaded = data;
+  histData      = historyLoaded;
+  renderHistory();
+  updateHistoryCountUI();
+}
+function updateHistoryCountUI() {
+  const label   = document.getElementById("history-count");
+  const spinner = document.getElementById("history-spinner");
+  if (!label) return;
+  spinner.classList.add("hidden");
+  const shown = historyLoaded.length;
+  if (historyTotal === 0) {
+    label.textContent = "";
+  } else if (shown >= historyTotal) {
+    label.textContent = `All ${historyTotal} settled bets loaded`;
+    const sentinel = document.getElementById("history-sentinel");
+    if (historyObserver && sentinel) historyObserver.unobserve(sentinel);
+  } else {
+    label.textContent = `${shown} / ${historyTotal} settled bets`;
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────
@@ -943,7 +1061,7 @@ async function init() {
     document.getElementById("team-search").value = "";
     updateFilterUI();
     renderBetsPanel();
-    renderHistory();
+    resetHistoryPagination();
   });
 
   // Drawer open/close
@@ -956,14 +1074,39 @@ async function init() {
     teamSearch = e.target.value.trim();
     updateFilterBadge();
     renderBetsPanel();
-    renderHistory();
+    resetHistoryPagination();
   });
 
+
+  // ── Infinite scroll for history ───────────────────────────────
+  const _sentinel = document.getElementById("history-sentinel");
+  historyObserver = new IntersectionObserver(async (entries) => {
+    if (!entries[0].isIntersecting) return;
+    if (historyFetching || historyLoaded.length >= historyTotal) return;
+    historyFetching = true;
+    document.getElementById("history-spinner").classList.remove("hidden");
+    try {
+      historyPage++;
+      const { data } = await fetchHistoryPage(historyPage);
+      historyLoaded = [...historyLoaded, ...data];
+      histData = historyLoaded;
+      renderHistory();
+      updateHistoryCountUI();
+    } catch(err) {
+      showError(err.message || String(err));
+    }
+    historyFetching = false;
+  }, { rootMargin: "200px" });
+  historyObserver.observe(_sentinel);
 
   showLoading();
 
   try {
-    [betsData, histData] = await Promise.all([fetchBets(), fetchHistory()]);
+    const [betsResult, histResult] = await Promise.all([fetchBets(), fetchHistoryPage(0)]);
+    betsData      = betsResult;
+    historyTotal  = histResult.count;
+    historyLoaded = histResult.data;
+    histData      = historyLoaded;
     const matchCount = groupIntoMatches(betsData).length;
     const allRows = [...betsData, ...histData];
     const latestRun = allRows.length
@@ -973,6 +1116,7 @@ async function init() {
     document.getElementById("last-updated").textContent = lastUpdatedText;
     document.getElementById("last-updated-mobile").textContent = lastUpdatedText;
     renderBetsPanel();
+    updateHistoryCountUI();
   } catch(err) {
     showError(err.message||String(err));
     document.getElementById("cards-container").innerHTML = "";
