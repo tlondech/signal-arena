@@ -83,9 +83,18 @@ _OUTCOME_LABELS = {
     "away_win":  "Away Win",
     "over_2_5":  "Over 2.5",
     "under_2_5": "Under 2.5",
-    "btts_yes":  "BTTS Yes",
-    "btts_no":   "BTTS No",
+
 }
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def is_live(commence_time: datetime, window_hours: float = 2.5) -> bool:
+    """Return True if the match is currently in progress (kicked off but not yet finished)."""
+    now = datetime.now(timezone.utc)
+    return commence_time <= now < commence_time + timedelta(hours=window_hours)
+
 
 # ---------------------------------------------------------------------------
 # DB helpers
@@ -135,19 +144,6 @@ def upsert_odds(session: Session, event: dict) -> None:
             away_odds=event.get("under_2_5_odds"),
             fetched_at=datetime.now(tz=timezone.utc),
         ))
-    if event.get("btts_yes_odds") is not None or event.get("btts_no_odds") is not None:
-        session.query(Odds).filter(
-            Odds.match_id == event["match_id"],
-            Odds.market == "bts",
-        ).delete()
-        session.add(Odds(
-            match_id=event["match_id"],
-            bookmaker=event["bookmaker"],
-            market="bts",
-            home_odds=event.get("btts_yes_odds"),
-            away_odds=event.get("btts_no_odds"),
-            fetched_at=datetime.now(tz=timezone.utc),
-        ))
 
 
 def upsert_fixtures(session: Session, raw_fixtures: list[dict], league_key: str, season: int) -> None:
@@ -189,10 +185,6 @@ def load_upcoming_events_from_db(session: Session, league_key: str) -> list[dict
             Odds.match_id == match.match_id,
             Odds.market == "totals",
         ).order_by(Odds.fetched_at.desc()).first()
-        bts = session.query(Odds).filter(
-            Odds.match_id == match.match_id,
-            Odds.market == "bts",
-        ).order_by(Odds.fetched_at.desc()).first()
         events.append({
             "match_id": match.match_id,
             "home_team": match.home_team,
@@ -203,8 +195,6 @@ def load_upcoming_events_from_db(session: Session, league_key: str) -> list[dict
             "away_odds": h2h.away_odds,
             "over_2_5_odds": totals.home_odds if totals else None,
             "under_2_5_odds": totals.away_odds if totals else None,
-            "btts_yes_odds": bts.home_odds if bts else None,
-            "btts_no_odds": bts.away_odds if bts else None,
             "bookmaker": h2h.bookmaker,
             "stage": match.stage,
         })
@@ -407,15 +397,6 @@ def run_league_pipeline(
             logger.debug("[%s] No upcoming matches with Winamax odds — skipping.", league.key)
             return [], []
 
-        # Optional: fetch BTTS odds per-event (costs 1 quota unit per match)
-        if cfg.odds_btts_bookmakers:
-            event_ids = [e["match_id"] for e in upcoming_events]
-            btts_map = odds_client.fetch_btts_odds(league.odds_sport, event_ids, cfg.odds_btts_bookmakers)
-            for event in upcoming_events:
-                yes_odds, no_odds = btts_map.get(event["match_id"], (None, None))
-                event["btts_yes_odds"] = yes_odds
-                event["btts_no_odds"] = no_odds
-
         # Phase 1b: Fetch stage/matchday enrichment (non-fatal)
         enrich_code = league.fdo_code or league.fdo_enrich_code
         if enrich_code and cfg.fdo_api_key:
@@ -432,11 +413,12 @@ def run_league_pipeline(
             except Exception as e:
                 logger.warning("[%s] Stage enrichment failed: %s", league.display_name, e)
 
-        # Phase 2: Upsert matches + odds
+        # Phase 2: Upsert matches + odds (skip odds for live matches)
         with Session(engine) as session:
             for event in upcoming_events:
                 upsert_match(session, event, league.key)
-                upsert_odds(session, event)
+                if not is_live(event["commence_time"]):
+                    upsert_odds(session, event)
             session.commit()
 
         # Phase 3: Fetch finished fixtures from API
@@ -523,7 +505,12 @@ def run_league_pipeline(
             league.display_name,
         )
 
-    # Phase 5: Evaluate each match
+    # Phase 5: Evaluate each match (skip live matches)
+    live_count = sum(1 for e in upcoming_events if is_live(e["commence_time"]))
+    if live_count:
+        logger.info("[%s] Skipping %d live match(es).", league.display_name, live_count)
+    upcoming_events = [e for e in upcoming_events if not is_live(e["commence_time"])]
+
     match_bets: dict[tuple, dict] = {}
     n_skipped = 0
     for event in upcoming_events:
@@ -596,8 +583,6 @@ def run_league_pipeline(
             max_goals=cfg.poisson_max_goals,
             over_2_5_odds=event.get("over_2_5_odds"),
             under_2_5_odds=event.get("under_2_5_odds"),
-            btts_yes_odds=event.get("btts_yes_odds"),
-            btts_no_odds=event.get("btts_no_odds"),
             rho=dc_params["rho"] if dc_params is not None else 0.0,
         )
 
@@ -610,8 +595,6 @@ def run_league_pipeline(
             "away_win":  (result["away_win_prob"],  event["away_odds"],           result["away_ev"]),
             "over_2_5":  (result["over_2_5_prob"],  event.get("over_2_5_odds"),   result["over_2_5_ev"]),
             "under_2_5": (result["under_2_5_prob"], event.get("under_2_5_odds"),  result["under_2_5_ev"]),
-            "btts_yes":  (result["btts_yes_prob"],  event.get("btts_yes_odds"),   result["btts_yes_ev"]),
-            "btts_no":   (result["btts_no_prob"],   event.get("btts_no_odds"),    result["btts_no_ev"]),
         }
         kickoff_iso = event["commence_time"].isoformat()
         key = (home_winamax, away_winamax, kickoff_iso)
@@ -630,7 +613,6 @@ def run_league_pipeline(
                 "away_form":     event.get("away_form"),
                 "home_crest":    event.get("home_crest"),
                 "away_crest":    event.get("away_crest"),
-                "btts_yes_prob":  round(result["btts_yes_prob"], 4),
                 "h2h_used":       poisson_inputs.get("h2h_used", False),
                 "home_rest_days": poisson_inputs.get("home_rest_days"),
                 "away_rest_days": poisson_inputs.get("away_rest_days"),
@@ -785,8 +767,6 @@ def settle_supabase_bets(supabase: Client, all_raw_fixtures: list[dict]) -> int:
             "away_win":  ag > hg,
             "over_2_5":  hg + ag > 2,
             "under_2_5": hg + ag <= 2,
-            "btts_yes":  hg > 0 and ag > 0,
-            "btts_no":   hg == 0 or ag == 0,
         }.get(bet["outcome"], False)
 
         rows_to_update.append({
@@ -856,7 +836,6 @@ def push_bets_to_supabase(
                 "home_rest_days": m.get("home_rest_days"),
                 "away_rest_days": m.get("away_rest_days"),
                 "h2h_used":       m.get("h2h_used"),
-                "btts_yes_prob":  m.get("btts_yes_prob"),
                 "is_second_leg":  m.get("is_second_leg"),
                 "agg_home":       m.get("agg_home"),
                 "agg_away":       m.get("agg_away"),
@@ -911,8 +890,6 @@ def settle_bets(session) -> int:
             "away_win":  ag > hg,
             "over_2_5":  hg + ag > 2,
             "under_2_5": hg + ag <= 2,
-            "btts_yes":  hg > 0 and ag > 0,
-            "btts_no":   hg == 0 or ag == 0,
         }.get(bet.outcome, False)
 
         bet.settled = True

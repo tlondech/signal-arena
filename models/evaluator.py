@@ -59,12 +59,6 @@ def calculate_over_under_probs(score_matrix: np.ndarray, line: float = 2.5) -> d
     return {"over": over, "under": 1.0 - over}
 
 
-def calculate_btts_prob(score_matrix: np.ndarray) -> float:
-    """P(both teams score ≥ 1 goal). Pure Poisson → home/away goals are independent."""
-    p_home_0 = float(score_matrix[0, :].sum())
-    p_away_0 = float(score_matrix[:, 0].sum())
-    return (1.0 - p_home_0) * (1.0 - p_away_0)
-
 
 def calculate_ev(true_probability: float, decimal_odds: float) -> float:
     """
@@ -84,8 +78,6 @@ def evaluate_match(
     max_goals: int = 8,
     over_2_5_odds: float | None = None,
     under_2_5_odds: float | None = None,
-    btts_yes_odds: float | None = None,
-    btts_no_odds: float | None = None,
     rho: float = 0.0,
 ) -> dict:
     """
@@ -95,15 +87,12 @@ def evaluate_match(
     score_matrix = build_score_matrix(home_lambda, away_lambda, max_goals, rho=rho)
     probs = calculate_match_probabilities(score_matrix)
     ou = calculate_over_under_probs(score_matrix)
-    btts_yes = calculate_btts_prob(score_matrix)
 
     home_ev = calculate_ev(probs["home_win"], home_odds)
     away_ev = calculate_ev(probs["away_win"], away_odds)
     draw_ev = calculate_ev(probs["draw"], draw_odds) if draw_odds is not None else None
     over_2_5_ev  = calculate_ev(ou["over"],  over_2_5_odds)  if over_2_5_odds  is not None else None
     under_2_5_ev = calculate_ev(ou["under"], under_2_5_odds) if under_2_5_odds is not None else None
-    btts_yes_ev  = calculate_ev(btts_yes,          btts_yes_odds) if btts_yes_odds is not None else None
-    btts_no_ev   = calculate_ev(1.0 - btts_yes,    btts_no_odds)  if btts_no_odds  is not None else None
 
     value_bets = []
     if home_ev >= ev_threshold:
@@ -116,10 +105,6 @@ def evaluate_match(
         value_bets.append("over_2_5")
     if under_2_5_ev is not None and under_2_5_ev >= ev_threshold:
         value_bets.append("under_2_5")
-    if btts_yes_ev is not None and btts_yes_ev >= ev_threshold:
-        value_bets.append("btts_yes")
-    if btts_no_ev is not None and btts_no_ev >= ev_threshold:
-        value_bets.append("btts_no")
 
     return {
         "home_win_prob":  probs["home_win"],
@@ -127,14 +112,10 @@ def evaluate_match(
         "away_win_prob":  probs["away_win"],
         "over_2_5_prob":  ou["over"],
         "under_2_5_prob": ou["under"],
-        "btts_yes_prob":  btts_yes,
-        "btts_no_prob":   1.0 - btts_yes,
         "home_ev":        home_ev,
         "draw_ev":        draw_ev,
         "away_ev":        away_ev,
         "over_2_5_ev":    over_2_5_ev,
         "under_2_5_ev":   under_2_5_ev,
-        "btts_yes_ev":    btts_yes_ev,
-        "btts_no_ev":     btts_no_ev,
         "value_bets":     value_bets,
     }

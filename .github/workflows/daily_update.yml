@@ -2,7 +2,8 @@ name: Daily Value Bets Updater
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 9,17 * * 1-5'       # Weekdays: 09:00 and 17:00 UTC
+    - cron: '0 9,12,15,18 * * 0,6' # Weekends: 09:00, 12:00, 15:00, 18:00 UTC
   workflow_dispatch:
 
 
@@ -39,7 +40,7 @@ jobs:
           ROLLING_WINDOW: ${{ vars.ROLLING_WINDOW || '5' }}
           POISSON_MAX_GOALS: ${{ vars.POISSON_MAX_GOALS || '8' }}
           ODDS_TOTALS_BOOKMAKERS: ${{ vars.ODDS_TOTALS_BOOKMAKERS || 'pinnacle' }}
-          ODDS_BTTS_BOOKMAKERS: ${{ vars.ODDS_BTTS_BOOKMAKERS || 'williamhill,pinnacle' }}
+
         run: python main.py --fetch
 
       - name: Commit updated crest map

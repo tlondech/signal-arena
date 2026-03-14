@@ -19,7 +19,6 @@ Bets are recommended when EV exceeds a configurable threshold (default: 5%).
 ### Supported Markets
 - 1X2 (Home Win / Draw / Away Win)
 - Over/Under 2.5 goals
-- Both Teams to Score (BTTS) — Yes/No
 
 ### Supported Leagues
 
@@ -105,7 +104,6 @@ All settings can be overridden via `.env`:
 | `ROLLING_WINDOW` | `5` | Number of recent matches for rolling stats |
 | `POISSON_MAX_GOALS` | `8` | Score matrix size (0–N goals) |
 | `ODDS_TOTALS_BOOKMAKERS` | `""` | Fallback bookmaker for O/U 2.5 when Winamax has no line, e.g. `pinnacle` |
-| `ODDS_BTTS_BOOKMAKERS` | `williamhill,pinnacle` | Bookmakers to query for BTTS (Yes/No) odds |
 
 ---
 
@@ -123,7 +121,7 @@ All settings can be overridden via `.env`:
 │   └── daily_update.yml             # Runs every 6 hours, auto-commits index.html
 │
 ├── extractors/
-│   ├── odds.py                      # The Odds API client (1X2, O/U, BTTS)
+│   ├── odds.py                      # The Odds API client (1X2, O/U)
 │   ├── footballdata_client.py       # football-data.co.uk CSV client (domestic leagues)
 │   ├── footballdataorg_client.py    # football-data.org API client (UCL)
 │   ├── soccerdata_client.py         # Alternative data source

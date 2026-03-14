@@ -233,10 +233,7 @@
             <span class="text-gray-700 dark:text-gray-300">Over 2.5 / Under 2.5</span>
             <span class="text-gray-400 dark:text-gray-500">Total goals</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-gray-700 dark:text-gray-300">BTTS Yes / BTTS No</span>
-            <span class="text-gray-400 dark:text-gray-500">Both teams score</span>
-          </div>
+
         </div>
       </div>
 
@@ -414,7 +411,7 @@ function groupIntoMatches(rows) {
         home_rest_days: row.home_rest_days,
         away_rest_days: row.away_rest_days,
         h2h_used:       row.h2h_used,
-        btts_yes_prob:  row.btts_yes_prob,
+
         is_second_leg:  row.is_second_leg,
         agg_home:       row.agg_home,
         agg_away:       row.agg_away,
@@ -509,6 +506,7 @@ function renderCard(m, opts = {}) {
         ${leagueBadge(m.league_key, m.league_name)}
         ${m.is_second_leg ? `<span class="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 rounded font-semibold">2nd Leg</span>` : ""}
         ${m.is_second_leg && m.agg_home != null ? `<span class="text-xs text-gray-400" title="Aggregate going into this leg">Agg ${m.agg_home}–${m.agg_away}</span>` : ""}
+        ${m.stage ? `<span class="text-xs text-gray-400 dark:text-gray-500">${esc(m.stage)}</span>` : ""}
         ${m.h2h_used ? `<span class="text-xs bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 px-1.5 rounded">H2H</span>` : ""}
       </div>
       <div class="flex items-center gap-2">
@@ -586,8 +584,7 @@ const BET_TYPES = [
   {key:"away_win",label:"Away Win"},
   {key:"over_2_5",label:"Over 2.5"},
   {key:"under_2_5",label:"Under 2.5"},
-  {key:"btts_yes",label:"BTTS Yes"},
-  {key:"btts_no", label:"BTTS No"},
+
 ];
 function renderBetTypePills() {
   const active  = "bg-indigo-600 text-white";
