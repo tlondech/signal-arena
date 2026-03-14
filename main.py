@@ -14,6 +14,7 @@ Pipeline (per enabled league):
 """
 
 import argparse
+from typing import cast
 import json
 import logging
 import os
@@ -306,6 +307,32 @@ def build_leg2_map(
 
     return leg2_map
 
+def load_h2h_fixtures_df(session: Session, league_key: str, current_season: int, n_seasons: int = 3):
+    """Loads finished fixtures for a league across the last n_seasons (including current) for H2H lookups."""
+    import pandas as pd
+    seasons = [current_season - i for i in range(n_seasons)]
+    rows = session.query(Fixture).filter(
+        Fixture.league_id == league_key,
+        Fixture.season.in_(seasons),
+    ).all()
+    if not rows:
+        return pd.DataFrame(columns=["fixture_date", "home_team", "away_team",
+                                     "home_goals", "away_goals", "home_goals_eff", "away_goals_eff"])
+    df = pd.DataFrame([{
+        "fixture_date": r.fixture_date,
+        "home_team": r.home_team,
+        "away_team": r.away_team,
+        "home_goals": r.home_goals,
+        "away_goals": r.away_goals,
+        "home_xg": r.home_xg,
+        "away_xg": r.away_xg,
+    } for r in rows])
+    df["fixture_date"] = pd.to_datetime(df["fixture_date"], utc=True)
+    df["home_goals_eff"] = df["home_xg"].where(df["home_xg"].notna(), df["home_goals"])
+    df["away_goals_eff"] = df["away_xg"].where(df["away_xg"].notna(), df["away_goals"])
+    return df
+
+
 def load_all_fixtures_df(engine, universal_names: dict | None = None):
     """Loads all finished fixtures from every league in the DB as a DataFrame.
 
@@ -475,6 +502,8 @@ def run_league_pipeline(
     league_avgs = compute_league_averages(fixtures_df)
     universal_names = name_map.get("universal_names", {})
     all_fixtures_df = load_all_fixtures_df(engine, universal_names)  # cross-league, for rest days
+    with Session(engine) as session:
+        h2h_fixtures_df = load_h2h_fixtures_df(session, league.key, season)  # last 3 seasons, for H2H
     logger.debug(
         "[%s] League averages — home goals: %.2f | away goals: %.2f",
         league.key, league_avgs["avg_home_goals"], league_avgs["avg_away_goals"],
@@ -533,6 +562,7 @@ def run_league_pipeline(
                 dc_params=dc_params,
                 match_date=event["commence_time"],
                 all_fixtures_df=all_fixtures_df,
+                h2h_fixtures_df=h2h_fixtures_df,
                 home_universal=home_universal,
                 away_universal=away_universal,
                 leg2_context=leg2_context,
@@ -542,6 +572,7 @@ def run_league_pipeline(
                 home_canonical, away_canonical, fixtures_df, league_avgs, cfg.rolling_window,
                 match_date=event["commence_time"],
                 all_fixtures_df=all_fixtures_df,
+                h2h_fixtures_df=h2h_fixtures_df,
                 home_universal=home_universal,
                 away_universal=away_universal,
                 leg2_context=leg2_context,
@@ -720,7 +751,7 @@ def settle_supabase_bets(supabase: Client, all_raw_fixtures: list[dict]) -> int:
         logger.error("Failed to fetch unsettled bets from Supabase: %s", exc)
         return 0
 
-    unsettled = resp.data or []
+    unsettled = cast(list[dict], resp.data or [])
     if not unsettled:
         logger.debug("No unsettled past bets found in Supabase.")
         return 0

@@ -297,6 +297,7 @@ def build_poisson_inputs(
     rolling_window: int = 5,
     match_date: datetime | None = None,
     all_fixtures_df: pd.DataFrame | None = None,
+    h2h_fixtures_df: pd.DataFrame | None = None,
     home_universal: str | None = None,
     away_universal: str | None = None,
     leg2_context: dict | None = None,
@@ -331,9 +332,9 @@ def build_poisson_inputs(
     home_lambda = (home_stats["home_attack"] / avg_h) * (away_stats["away_defense"] / avg_a) * avg_h
     away_lambda = (away_stats["away_attack"] / avg_a) * (home_stats["home_defense"] / avg_h) * avg_a
 
-    # H2H blend
+    # H2H blend — use multi-season data if available, else fall back to current season
     h2h_used = False
-    h2h = compute_h2h_stats(fixtures_df, home_team, away_team)
+    h2h = compute_h2h_stats(h2h_fixtures_df if h2h_fixtures_df is not None else fixtures_df, home_team, away_team)
     if h2h is not None:
         h2h_home_lambda = (h2h["home_attack"] / avg_h) * (h2h["away_defense"] / avg_a) * avg_h
         h2h_away_lambda = (h2h["away_attack"] / avg_a) * (h2h["home_defense"] / avg_h) * avg_a
@@ -506,6 +507,7 @@ def build_poisson_inputs_dc(
     dc_params: dict,
     match_date: datetime | None = None,
     all_fixtures_df: pd.DataFrame | None = None,
+    h2h_fixtures_df: pd.DataFrame | None = None,
     home_universal: str | None = None,
     away_universal: str | None = None,
     leg2_context: dict | None = None,
@@ -529,6 +531,24 @@ def build_poisson_inputs_dc(
 
     home_lambda = math.exp(alpha[home_team] + beta[away_team] + gamma)
     away_lambda = math.exp(alpha[away_team] + beta[home_team])
+
+    # H2H blend (same logic as rolling-window path)
+    h2h_used = False
+    if h2h_fixtures_df is not None:
+        avg_h = float(h2h_fixtures_df["home_goals_eff"].mean()) if len(h2h_fixtures_df) else 0.0
+        avg_a = float(h2h_fixtures_df["away_goals_eff"].mean()) if len(h2h_fixtures_df) else 0.0
+        if avg_h > 0 and avg_a > 0:
+            h2h = compute_h2h_stats(h2h_fixtures_df, home_team, away_team)
+            if h2h is not None:
+                h2h_home_lambda = (h2h["home_attack"] / avg_h) * (h2h["away_defense"] / avg_a) * avg_h
+                h2h_away_lambda = (h2h["away_attack"] / avg_a) * (h2h["home_defense"] / avg_h) * avg_a
+                home_lambda = (1 - _H2H_BLEND) * home_lambda + _H2H_BLEND * h2h_home_lambda
+                away_lambda = (1 - _H2H_BLEND) * away_lambda + _H2H_BLEND * h2h_away_lambda
+                h2h_used = True
+                logger.debug(
+                    "H2H blend applied (DC) for %s vs %s (h2h_λ home=%.2f away=%.2f)",
+                    home_team, away_team, h2h_home_lambda, h2h_away_lambda,
+                )
 
     # Fatigue adjustment (identical logic to build_poisson_inputs)
     home_rest_days: int | None = None
@@ -568,7 +588,7 @@ def build_poisson_inputs_dc(
     return {
         "home_lambda":    home_lambda,
         "away_lambda":    away_lambda,
-        "h2h_used":       False,
+        "h2h_used":       h2h_used,
         "home_rest_days": home_rest_days,
         "away_rest_days": away_rest_days,
     }
