@@ -793,18 +793,25 @@ def settle_supabase_bets(supabase: Client, all_raw_fixtures: list[dict], name_ma
         logger.debug("No fixture matches found for unsettled bets.")
         return 0
 
-    try:
-        response = (
-            supabase.table("bet_history")
-            .upsert(rows_to_update, on_conflict="kickoff,home_team,away_team,outcome")
-            .execute()
-        )
-        count = len(response.data) if response.data else len(rows_to_update)
+    count = 0
+    for row in rows_to_update:
+        try:
+            supabase.table("bet_history").update({
+                "settled":           row["settled"],
+                "result":            row["result"],
+                "actual_home_goals": row["actual_home_goals"],
+                "actual_away_goals": row["actual_away_goals"],
+                "settled_at":        row["settled_at"],
+            }).eq("kickoff", row["kickoff"]).eq("home_team", row["home_team"]).eq("away_team", row["away_team"]).eq("outcome", row["outcome"]).execute()
+            count += 1
+        except Exception as exc:
+            logger.error(
+                "Failed to settle bet %s vs %s (%s) @ %s: %s",
+                row["home_team"], row["away_team"], row["outcome"], row["kickoff"], exc,
+            )
+    if count:
         logger.info("Settled %d bet(s) via Supabase.", count)
-        return count
-    except Exception as exc:
-        logger.error("Failed to settle bets in Supabase: %s", exc)
-        raise
+    return count
 
 
 def push_bets_to_supabase(
@@ -935,6 +942,89 @@ def load_bet_history(session) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Settlement helpers — dual-source (football-data.org supplements .co.uk)
+# ---------------------------------------------------------------------------
+
+
+def _fetch_org_settlement_fixtures(
+    leagues: list,
+    cfg,
+    name_map: dict,
+) -> list[dict]:
+    """
+    Fetches finished fixtures from football-data.org for settlement use only.
+    Only called in force=True path. Returns [] on total failure.
+    Skips leagues whose fdo_enrich_code is None (UCL already covered via fdo_code,
+    World Cup has no .org source). Team names are pre-resolved to canonical form.
+    """
+    from extractors.footballdataorg_client import FootballDataOrgClient, FootballDataOrgError
+
+    if not cfg.fdo_api_key:
+        return []
+
+    season = _current_season()
+    results: list[dict] = []
+
+    for league in leagues:
+        settle_code = league.fdo_enrich_code
+        if not settle_code:
+            continue
+        try:
+            client = FootballDataOrgClient(settle_code, season, cfg.fdo_api_key)
+            fixtures = client.fetch_fixtures()
+        except FootballDataOrgError as e:
+            logger.warning(
+                "[%s] .org settlement fetch failed (will fall back to .co.uk): %s",
+                league.key, e,
+            )
+            continue
+
+        for f in fixtures:
+            home_c = resolve_team_name(f["home_team"], name_map, league.key)
+            away_c = resolve_team_name(f["away_team"], name_map, league.key)
+            if not home_c or not away_c:
+                continue
+            results.append({**f, "home_team": home_c, "away_team": away_c, "league_key": league.key})
+
+    logger.debug("_fetch_org_settlement_fixtures: %d fixtures across %d leagues.", len(results), len(leagues))
+    return results
+
+
+def _merge_settlement_fixtures(
+    couk_fixtures: list[dict],
+    org_fixtures: list[dict],
+    name_map: dict,
+) -> list[dict]:
+    """
+    Merges .co.uk and .org fixture lists for settlement.
+    .org entries take precedence (near real-time). .co.uk fills gaps.
+    Dedup key: (canonical_home, canonical_away, YYYY-MM-DD) — timezone-safe.
+    """
+    def _date_str(dt) -> str:
+        if hasattr(dt, "strftime"):
+            return dt.strftime("%Y-%m-%d")
+        return str(dt)[:10]
+
+    # Index .org entries (already canonical)
+    org_index: dict[tuple, dict] = {}
+    for f in org_fixtures:
+        key = (f["home_team"], f["away_team"], _date_str(f["fixture_date"]))
+        org_index[key] = f
+
+    # Fill in .co.uk entries not covered by .org
+    fill_ins: list[dict] = []
+    for f in couk_fixtures:
+        lk = f.get("league_key", "")
+        home_c = resolve_team_name(f["home_team"], name_map, lk) or f["home_team"]
+        away_c = resolve_team_name(f["away_team"], name_map, lk) or f["away_team"]
+        key = (home_c, away_c, _date_str(f["fixture_date"]))
+        if key not in org_index:
+            fill_ins.append(f)
+
+    return list(org_index.values()) + fill_ins
+
+
+# ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
 
@@ -967,7 +1057,10 @@ def run_pipeline(force: bool = False) -> None:
     )
 
     # Settle past bets against Supabase (works in CI — no local SQLite needed)
-    settle_supabase_bets(supabase, all_raw_fixtures, name_map)
+    # Supplement .co.uk fixtures with near-real-time .org results for faster settlement.
+    org_settle = _fetch_org_settlement_fixtures(cfg.enabled_leagues, cfg, name_map) if force else []
+    settlement_fixtures = _merge_settlement_fixtures(all_raw_fixtures, org_settle, name_map)
+    settle_supabase_bets(supabase, settlement_fixtures, name_map)
 
     # Persist today's recommendations to local SQLite (used by settle_bets)
     with Session(engine) as session:

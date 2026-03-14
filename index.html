@@ -322,7 +322,7 @@ let activeLeague  = "all";
 let activeBetType = "all";
 let teamSearch    = "";
 let histSortCol      = "kickoff";
-let histSortDir      = "asc";
+let histSortDir      = "desc";
 let histStatusFilter = "settled";
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -333,12 +333,13 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"});
 }
 function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+  return new Date(iso).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit",timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone});
 }
 function relativeDate(date) {
   const d     = new Date(date);
   const now   = new Date();
-  const time  = d.toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit",hour12:true});
+  const tz    = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const time  = d.toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit",hour12:true,timeZone:tz});
   const startOfToday     = new Date(now.getFullYear(),now.getMonth(),now.getDate());
   const startOfYesterday = new Date(startOfToday - 864e5);
   const startOfWeek      = new Date(startOfToday - 6*864e5);
@@ -745,10 +746,14 @@ function renderHistory() {
   const visible = histStatusFilter === "settled" ? allRows
                 : allRows.filter(r => r._status === histStatusFilter);
 
-  updateStatsGrid(visible);
+  updateStatsGrid(allRows);
 
-  // Sort by kickoff descending (shared for both views)
-  const sorted = [...visible].sort((a, b) => (a.kickoff < b.kickoff ? 1 : -1));
+  // Sort by active column (shared for both views)
+  const sorted = [...visible].sort((a, b) => {
+    const av = a[histSortCol] ?? "", bv = b[histSortCol] ?? "";
+    const dir = histSortDir === "desc" ? -1 : 1;
+    return av < bv ? -dir : av > bv ? dir : 0;
+  });
 
   // ── Mobile: card layout ───────────────────────────────────────
   const container = document.getElementById("hist-cards-container");
@@ -796,17 +801,31 @@ function renderHistory() {
     tbody.innerHTML=`<tr><td colspan="${HIST_COLS.length}" class="px-4 py-10 text-center text-gray-400 whitespace-normal">No history yet.</td></tr>`;
     return;
   }
-  tbody.innerHTML = sorted.map((r,i) => {
-    const bg = i%2===0?"":"bg-gray-50 dark:bg-gray-800/40";
-    const matchKey = `${r.kickoff}|${r.home_team}|${r.away_team}`;
-    const prevMatchKey = i > 0 ? `${sorted[i-1].kickoff}|${sorted[i-1].home_team}|${sorted[i-1].away_team}` : null;
-    const isRepeat = matchKey === prevMatchKey;
-    const cells = HIST_COLS.map(c => {
-      const align = c.align==="right"?"text-right":c.align==="center"?"text-center":"";
-      const content = (c.key === "home_team" && isRepeat) ? "" : c.render(r);
-      return `<td class="px-4 py-1.5 ${align}">${content}</td>`;
+  // Group rows by match (preserving sort order of first appearance)
+  const matchGroups = [];
+  const matchGroupMap = new Map();
+  for (const r of sorted) {
+    const key = `${r.kickoff}|${r.home_team}|${r.away_team}`;
+    if (!matchGroupMap.has(key)) {
+      const group = { key, rows: [r] };
+      matchGroups.push(group);
+      matchGroupMap.set(key, group);
+    } else {
+      matchGroupMap.get(key).rows.push(r);
+    }
+  }
+  const BLANK_IN_REPEAT = new Set(["kickoff","league_name","home_team","_score"]);
+  tbody.innerHTML = matchGroups.map((group, gi) => {
+    const stripeCls = gi%2===0 ? "" : "bg-gray-50 dark:bg-gray-800/40";
+    return group.rows.map((r, ri) => {
+      const borderCls = gi > 0 && ri === 0 ? "border-t border-gray-200 dark:border-gray-700" : "";
+      const cells = HIST_COLS.map(c => {
+        const align = c.align==="right"?"text-right":c.align==="center"?"text-center":"";
+        const content = ri > 0 && BLANK_IN_REPEAT.has(c.key) ? "" : c.render(r);
+        return `<td class="px-4 py-1.5 ${align}">${content}</td>`;
+      }).join("");
+      return `<tr class="${stripeCls} ${borderCls} hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">${cells}</tr>`;
     }).join("");
-    return `<tr class="${bg} hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">${cells}</tr>`;
   }).join("");
 }
 
