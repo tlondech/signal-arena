@@ -76,7 +76,7 @@ The workflow can also be triggered manually via `workflow_dispatch`.
 ## Usage
 
 ```bash
-# Normal run (uses cached data if already run today, auto-fetches on matchdays)
+# Normal run (uses cached DB data; auto-fetches if a match is scheduled today)
 python main.py
 
 # Always fetch fresh data from external APIs (use in CI / scheduled runs)
