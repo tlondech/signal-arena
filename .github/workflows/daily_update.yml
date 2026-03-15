@@ -41,7 +41,7 @@ jobs:
           POISSON_MAX_GOALS: ${{ vars.POISSON_MAX_GOALS || '8' }}
           ODDS_TOTALS_BOOKMAKERS: ${{ vars.ODDS_TOTALS_BOOKMAKERS || 'pinnacle' }}
 
-        run: python main.py --fetch
+        run: python main.py
 
       - name: Commit updated crest map
         run: |

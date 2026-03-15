@@ -539,7 +539,7 @@ function renderCard(m, opts = {}) {
   const crestH = (url, name) => url
     ? `<img src="${esc(url)}" alt="${esc(name)}" class="w-7 h-7 object-contain flex-shrink-0" onerror="this.style.display='none'">`
     : `<span class="w-7 h-7 flex-shrink-0"></span>`;
-  const rankStr = n => n ? `<span class="hidden sm:inline-block text-xs text-gray-400 ml-1">${ordinal(n)}</span>` : "";
+  const rankStr = n => n ? `<span class="text-xs font-medium text-gray-400 dark:text-gray-500">${ordinal(n)}</span>` : "";
   const restWarn = days => (days != null && days < 4)
     ? `<span class="whitespace-nowrap shrink-0 inline-flex items-center gap-0.5 text-xs font-medium text-amber-500" title="Short rest: only ${days} day${days===1?'':'s'} since last match">⏱ ${days}d</span>` : "";
 
@@ -588,19 +588,23 @@ function renderCard(m, opts = {}) {
         <div class="flex items-center gap-1.5 min-w-0">
           ${crestH(m.home_crest, m.home_team)}
           <span class="font-semibold truncate">${esc(m.home_team)}</span>
-          ${rankStr(m.home_rank)}
           ${restWarn(m.home_rest_days)}
         </div>
-        <div class="flex flex-wrap justify-end gap-1 flex-shrink-0">${formBubbles(m.home_form)}</div>
+        <div class="flex items-center gap-2.5 shrink-0">
+          ${rankStr(m.home_rank)}
+          <div class="flex gap-1">${formBubbles(m.home_form)}</div>
+        </div>
       </div>
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-1.5 min-w-0">
           ${crestH(m.away_crest, m.away_team)}
           <span class="font-semibold truncate">${esc(m.away_team)}</span>
-          ${rankStr(m.away_rank)}
           ${restWarn(m.away_rest_days)}
         </div>
-        <div class="flex flex-wrap justify-end gap-1 flex-shrink-0">${formBubbles(m.away_form)}</div>
+        <div class="flex items-center gap-2.5 shrink-0">
+          ${rankStr(m.away_rank)}
+          <div class="flex gap-1">${formBubbles(m.away_form)}</div>
+        </div>
       </div>
     </div>
     <!-- Bets table -->
