@@ -3,6 +3,7 @@ SQLite DB read/write helpers.
 All functions that interact directly with the local SQLite database via SQLAlchemy.
 """
 
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -217,9 +218,22 @@ def save_bets_to_history(session, match_bets_list: list[dict], recorded_date: st
             ).first()
             if exists:
                 if not exists.settled:
-                    exists.odds      = b["odds"]
-                    exists.true_prob = b["true_prob"]
-                    exists.ev        = b["ev"]
+                    exists.odds          = b["odds"]
+                    exists.true_prob     = b["true_prob"]
+                    exists.ev            = b["ev"]
+                    exists.home_rank     = m.get("home_rank")
+                    exists.away_rank     = m.get("away_rank")
+                    exists.home_form     = json.dumps(m["home_form"]) if m.get("home_form") is not None else None
+                    exists.away_form     = json.dumps(m["away_form"]) if m.get("away_form") is not None else None
+                    exists.home_crest    = m.get("home_crest")
+                    exists.away_crest    = m.get("away_crest")
+                    exists.home_rest_days = m.get("home_rest_days")
+                    exists.away_rest_days = m.get("away_rest_days")
+                    exists.h2h_used      = m.get("h2h_used")
+                    exists.is_second_leg = m.get("is_second_leg")
+                    exists.agg_home      = m.get("agg_home")
+                    exists.agg_away      = m.get("agg_away")
+                    exists.leg1_result   = json.dumps(m["leg1_result"]) if m.get("leg1_result") is not None else None
                 continue
             session.add(BetHistory(
                 recorded_date=recorded_date,
@@ -236,6 +250,19 @@ def save_bets_to_history(session, match_bets_list: list[dict], recorded_date: st
                 odds=b["odds"],
                 true_prob=b["true_prob"],
                 ev=b["ev"],
+                home_rank=m.get("home_rank"),
+                away_rank=m.get("away_rank"),
+                home_form=json.dumps(m["home_form"]) if m.get("home_form") is not None else None,
+                away_form=json.dumps(m["away_form"]) if m.get("away_form") is not None else None,
+                home_crest=m.get("home_crest"),
+                away_crest=m.get("away_crest"),
+                home_rest_days=m.get("home_rest_days"),
+                away_rest_days=m.get("away_rest_days"),
+                h2h_used=m.get("h2h_used"),
+                is_second_leg=m.get("is_second_leg"),
+                agg_home=m.get("agg_home"),
+                agg_away=m.get("agg_away"),
+                leg1_result=json.dumps(m["leg1_result"]) if m.get("leg1_result") is not None else None,
             ))
             inserted += 1
     return inserted

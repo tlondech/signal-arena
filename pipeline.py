@@ -10,6 +10,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from config import LeagueConfig, _current_season
+from db.schema import Match
 from db.queries import (
     load_all_fixtures_df,
     load_h2h_fixtures_df,
@@ -148,6 +149,22 @@ def run_league_pipeline(
     total_matchdays: int | None = None
     form_map: dict[str, list[str]] = {}
     odds_client = None
+
+    # Auto-bypass cache when a match is scheduled today (fresh odds always needed)
+    if not force:
+        today_utc = datetime.now(timezone.utc).date()
+        day_start = datetime.combine(today_utc, datetime.min.time())
+        day_end   = datetime.combine(today_utc, datetime.max.time())
+        with Session(engine) as _s:
+            match_today = _s.query(Match).filter(
+                Match.league == league.key,
+                Match.status == "upcoming",
+                Match.match_date >= day_start,
+                Match.match_date <= day_end,
+            ).first()
+        if match_today:
+            logger.info("[%s] Match today detected — bypassing cache.", league.display_name)
+            force = True
 
     if force:
         # Phase 1: Fetch odds from API

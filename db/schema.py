@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float, Integer, String, UniqueConstraint,
+    Boolean, Column, DateTime, Float, Integer, String, Text, UniqueConstraint,
     create_engine, text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -80,6 +80,19 @@ class BetHistory(Base):
     actual_home_goals = Column(Integer,  nullable=True)
     actual_away_goals = Column(Integer,  nullable=True)
     settled_at        = Column(DateTime, nullable=True)
+    home_rank         = Column(Integer,  nullable=True)
+    away_rank         = Column(Integer,  nullable=True)
+    home_form         = Column(Text,     nullable=True)    # JSON array
+    away_form         = Column(Text,     nullable=True)    # JSON array
+    home_crest        = Column(String,   nullable=True)
+    away_crest        = Column(String,   nullable=True)
+    home_rest_days    = Column(Integer,  nullable=True)
+    away_rest_days    = Column(Integer,  nullable=True)
+    h2h_used          = Column(Boolean,  nullable=True)
+    is_second_leg     = Column(Boolean,  nullable=True)
+    agg_home          = Column(Integer,  nullable=True)
+    agg_away          = Column(Integer,  nullable=True)
+    leg1_result       = Column(Text,     nullable=True)    # JSON object
 
     __table_args__ = (
         UniqueConstraint("kickoff", "home_team", "away_team", "outcome",
@@ -94,9 +107,25 @@ def init_db(db_path: str):
     Base.metadata.create_all(engine)
     with engine.connect() as conn:
         conn.execute(text("PRAGMA journal_mode=WAL"))
-        try:
-            conn.execute(text("ALTER TABLE matches ADD COLUMN stage TEXT"))
-            conn.commit()
-        except Exception:
-            pass  # column already exists
+        for col_ddl in [
+            "ALTER TABLE matches ADD COLUMN stage TEXT",
+            "ALTER TABLE bet_history ADD COLUMN home_rank INTEGER",
+            "ALTER TABLE bet_history ADD COLUMN away_rank INTEGER",
+            "ALTER TABLE bet_history ADD COLUMN home_form TEXT",
+            "ALTER TABLE bet_history ADD COLUMN away_form TEXT",
+            "ALTER TABLE bet_history ADD COLUMN home_crest TEXT",
+            "ALTER TABLE bet_history ADD COLUMN away_crest TEXT",
+            "ALTER TABLE bet_history ADD COLUMN home_rest_days INTEGER",
+            "ALTER TABLE bet_history ADD COLUMN away_rest_days INTEGER",
+            "ALTER TABLE bet_history ADD COLUMN h2h_used BOOLEAN",
+            "ALTER TABLE bet_history ADD COLUMN is_second_leg BOOLEAN",
+            "ALTER TABLE bet_history ADD COLUMN agg_home INTEGER",
+            "ALTER TABLE bet_history ADD COLUMN agg_away INTEGER",
+            "ALTER TABLE bet_history ADD COLUMN leg1_result TEXT",
+        ]:
+            try:
+                conn.execute(text(col_ddl))
+                conn.commit()
+            except Exception:
+                pass  # column already exists
     return engine
