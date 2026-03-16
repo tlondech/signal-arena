@@ -568,6 +568,7 @@ function groupIntoMatches(rows) {
         away_rest_days: row.away_rest_days,
         h2h_used:       row.h2h_used,
         sport:          row.sport || "football",
+        surface:        row.surface || null,
         handicap_line:  row.handicap_line ?? null,
 
         is_second_leg:  row.is_second_leg,
