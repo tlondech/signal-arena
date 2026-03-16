@@ -61,11 +61,9 @@ def _filter_relevant(articles: list[dict], team: str) -> list[dict]:
 def _extract_key_sentences(articles: list[dict], team: str, opponent: str) -> str:
     """
     Scans article titles and descriptions for injury/suspension sentences using word boundaries.
-    Only surfaces sentences where the team name is the subject: when both team and opponent
-    names appear, the team name must come first (e.g. "Fiorentina news: Kean out vs Cremonese"
-    is valid for Fiorentina but skipped for Cremonese). Deduplicates and strips truncation artifacts.
+    Prevents "opponent news" (e.g., Inter injuries vs Fiorentina) and aggressively deduplicates.
     """
-    team_lower     = team.lower()
+    team_lower = team.lower()
     opponent_lower = opponent.lower()
     raw_sentences: list[str] = []
 
@@ -73,17 +71,30 @@ def _extract_key_sentences(articles: list[dict], team: str, opponent: str) -> st
         title = (a.get("title") or "").strip()
         desc = (a.get("description") or "").strip()
 
+        # Clean up NewsAPI truncation artifacts BEFORE splitting
+        desc = re.sub(r'\s*\[\+\d+\s*chars\]\s*$', '', desc)
+        desc = re.sub(r'\.{3,}$', '', desc)
+
         # Force a period between title and desc so the splitter doesn't merge them
         text = f"{title}. {desc}"
         raw_sentences.extend(re.split(r"(?<=[.!?])\s+", text))
 
     scored: list[tuple[int, str]] = []
 
-    for sentence in raw_sentences:
-        sentence = sentence.strip()
+    # Heuristic: Identify if the target team is actually the destination or opponent.
+    # Catches: "trip to Fiorentina", "clash with Fiorentina", "for the Fiorentina game"
+    sabotage_pattern = re.compile(
+        rf'\b(against|vs\.?|v\.?|hosting|facing|plays|trip to|travel(?:s|ing|ling)? to|clash with|welcome(?:s|ing)?)'
+        rf'\s+(?:the\s+)?{re.escape(team_lower)}\b'
+        rf'|\b(?:for|ahead of|miss(?:ing)?)\s+(?:the\s+)?{re.escape(team_lower)}\s+(game|clash|match|fixture|tie)\b',
+        re.IGNORECASE
+    )
 
-        # Skip empty strings and NewsAPI truncation garbage
-        if not sentence or sentence.endswith("chars]"):
+    for sentence in raw_sentences:
+        sentence = sentence.replace("...", "").strip()
+
+        # Skip empty strings or incredibly short fragments
+        if not sentence or len(sentence) < 15:
             continue
 
         s_lower = sentence.lower()
@@ -92,13 +103,15 @@ def _extract_key_sentences(articles: list[dict], team: str, opponent: str) -> st
         if team_lower not in s_lower:
             continue
 
-        # When both names appear, only keep the sentence if the team name comes
-        # first — this makes "Fiorentina news: Kean out vs Cremonese" valid for
-        # Fiorentina but invalid for Cremonese (where opponent appears first).
+        # 1. Prevent Opponent Context (The "trip to Fiorentina" fix)
+        if sabotage_pattern.search(s_lower):
+            continue
+
+        # 2. Prevent Current Match Opponent Context (e.g., "Fiorentina opponent Cremonese missing player")
         if opponent_lower in s_lower and s_lower.index(opponent_lower) < s_lower.index(team_lower):
             continue
 
-        # Count actual word boundary matches
+        # Count actual word boundary matches using your global _KW_PATTERN
         matches = _KW_PATTERN.findall(sentence)
         if matches:
             scored.append((len(matches), sentence))
@@ -109,26 +122,42 @@ def _extract_key_sentences(articles: list[dict], team: str, opponent: str) -> st
     # Sort by score descending
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    seen: set[str] = set()
+    seen_word_sets: list[set[str]] = []
     top: list[str] = []
 
     for _, sentence in scored:
-        # 4. Normalize the string for deduplication (removes punctuation so similar sentences are caught)
-        normalized = re.sub(r'[^\w\s]', '', sentence.lower())
+        # Tokenize into words for fuzzy similarity comparison
+        words = set(re.findall(r'\w+', sentence.lower()))
+        is_duplicate = False
 
-        if normalized not in seen:
-            seen.add(normalized)
-            # Strip redundant "{Team} [team news]: " prefix and clean up ellipsis
+        for seen_words in seen_word_sets:
+            # Check for subset (catches truncated API descriptions instantly)
+            if words.issubset(seen_words) or seen_words.issubset(words):
+                is_duplicate = True
+                break
+
+            # Check Jaccard similarity (If ~45% of the unique words are shared, it's a duplicate)
+            union_len = len(words | seen_words)
+            if union_len > 0 and (len(words & seen_words) / union_len) > 0.45:
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            seen_word_sets.append(words)
+
+            # Strip redundant "{Team} news: " prefix
             clean_sentence = re.sub(
                 rf'^{re.escape(team)}\s*(?:team\s+news\s*)?[:\-]\s*',
                 '', sentence, flags=re.IGNORECASE,
-            ).replace("…", "").strip()
+            ).strip()
+
             top.append(clean_sentence)
 
+        # Stop when we hit the limit defined in your constants
         if len(top) == TOP_NEWS_SENTENCES:
             break
 
-    return " ".join(top)
+    return " ".join(top) if top else "No notable absences reported."
 
 
 def fetch_team_news(

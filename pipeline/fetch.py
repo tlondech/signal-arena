@@ -108,7 +108,7 @@ def fetch_league_data(
                 logger.debug("[%s] Stage map: %d entries, %d crests.", league.key, len(stage_map), len(crest_map))
                 # Persist crests so no-force runs can use them
                 if crest_map:
-                    p = Path(cfg.crest_map_path)
+                    p = Path(cfg.football_crest_map_path)
                     existing = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
                     existing.update(crest_map)
                     p.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -172,7 +172,7 @@ def fetch_league_data(
 
     else:
         # Load from DB — no API calls
-        p = Path(cfg.crest_map_path)
+        p = Path(cfg.football_crest_map_path)
         crest_map = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
         with Session(engine) as session:
             upcoming_events = load_upcoming_events_from_db(session, league.key)

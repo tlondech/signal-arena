@@ -14,11 +14,13 @@ Pipeline (per enabled league):
 """
 
 import argparse
+import json
 import logging
 import os
 import time
 import webbrowser
 from datetime import date, datetime
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -26,11 +28,11 @@ from config import load_config
 from constants import LOCAL_REPORT_URL
 from db.schema import init_db
 from db.queries import prune_stale_bets, save_bets_to_history
-from db.supabase import get_supabase_client, prune_stale_supabase_bets, push_bets_to_supabase, settle_supabase_bets
+from db.supabase import get_supabase_client, prune_stale_supabase_bets, push_bets_to_supabase, settle_supabase_bets, settle_tennis_supabase_bets
 from extractors.odds import fetch_active_tennis_leagues
 from extractors.tennis_data_client import TennisDataClient
 from models.features import load_team_name_map
-from models.tennis_model import compute_elo_ratings
+from models.tennis_model import build_player_country_map, compute_elo_ratings
 from pipeline import _fetch_org_settlement_fixtures, _merge_settlement_fixtures, run_league_pipeline
 
 # ---------------------------------------------------------------------------
@@ -86,12 +88,25 @@ def run_pipeline(force_fetch: bool = False, dry_run: bool = False) -> None:
             current_year = datetime.now().year
             years = list(range(current_year - 4, current_year + 1))
             client = TennisDataClient()
-            cfg.atp_elo = compute_elo_ratings(client.fetch_atp_matches(years))
-            cfg.wta_elo = compute_elo_ratings(client.fetch_wta_matches(years))
+            atp_matches = client.fetch_atp_matches(years)
+            wta_matches = client.fetch_wta_matches(years)
+            cfg.atp_elo = compute_elo_ratings(atp_matches)
+            cfg.wta_elo = compute_elo_ratings(wta_matches)
             logger.debug(
                 "Tennis Elo: %d ATP players, %d WTA players rated",
                 len(cfg.atp_elo), len(cfg.wta_elo),
             )
+            # Persist player → flag URL into crest_map.json (new entries only)
+            country_map = {
+                **build_player_country_map(atp_matches),
+                **build_player_country_map(wta_matches),
+            }
+            if country_map:
+                p = Path(cfg.tennis_crest_map_path)
+                existing = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+                merged = {**country_map, **existing}  # existing entries win (allow manual overrides)
+                p.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
+                logger.debug("Tennis: %d player flag URL(s) merged into %s", len(country_map), cfg.tennis_crest_map_path)
         except Exception as e:
             logger.warning("Tennis Elo computation failed — tennis leagues will be skipped: %s", e)
 
@@ -128,6 +143,10 @@ def run_pipeline(force_fetch: bool = False, dry_run: bool = False) -> None:
     org_settle = _fetch_org_settlement_fixtures(cfg.enabled_leagues, cfg, name_map) if force_fetch else []
     settlement_fixtures = _merge_settlement_fixtures(all_raw_fixtures, org_settle, name_map)
     settle_supabase_bets(supabase, settlement_fixtures, name_map)
+
+    tennis_league_keys = [lg.key for lg in cfg.enabled_leagues if lg.sport_type == "tennis"]
+    if tennis_league_keys:
+        settle_tennis_supabase_bets(supabase, tennis_league_keys)
 
     processed_league_keys = {lg.key for lg in cfg.enabled_leagues}
 

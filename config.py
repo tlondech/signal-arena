@@ -3,8 +3,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from dotenv import load_dotenv
 
-from constants import EV_THRESHOLD
-
 load_dotenv()
 
 
@@ -74,11 +72,14 @@ class Config:
     poisson_max_goals: int = 8
     rolling_window: int = 5
     max_prob_ratio: float = 1.3        # max model_prob / implied_prob; UCL uses 1.4
+    tennis_max_prob_ratio: float = 1.5 # looser cap for tennis Elo (less data history than football)
+    tennis_min_matches: int = 10       # min historical matches required for a player to generate bets
 
     # Paths
     db_path: str = "data/bets.db"
     team_map_path: str = "data/team_name_map.json"
-    crest_map_path: str = "data/crest_map.json"
+    football_crest_map_path: str = "data/football_crest_map.json"
+    tennis_crest_map_path: str = "data/tennis_crest_map.json"
     report_json_path: str = "data/latest_report.json"
     report_html_path: str = "index.html"
     log_dir: str = "logs"
@@ -122,8 +123,10 @@ def load_config() -> Config:
         fdo_api_key=fdo_api_key,
         news_api_key=os.getenv("NEWS_API_KEY", ""),
         enabled_leagues=enabled,
-        ev_threshold=float(os.getenv("EV_THRESHOLD", str(EV_THRESHOLD))),
+        ev_threshold=float(os.getenv("EV_THRESHOLD", "0.05")),
         rolling_window=int(os.getenv("ROLLING_WINDOW", "5")),
         poisson_max_goals=int(os.getenv("POISSON_MAX_GOALS", "8")),
         odds_totals_bookmakers=os.getenv("ODDS_TOTALS_BOOKMAKERS", ""),
+        tennis_max_prob_ratio=float(os.getenv("TENNIS_MAX_PROB_RATIO", "1.5")),
+        tennis_min_matches=int(os.getenv("TENNIS_MIN_MATCHES", "10")),
     )

@@ -104,14 +104,13 @@ def evaluate_matches(
     stage_map: dict[str, str],
     crest_map: dict[str, str],
     features: dict,
-) -> dict[tuple, dict]:
+) -> tuple[dict[tuple, dict], int]:
     """
     Runs the EV evaluation loop over all non-live upcoming events.
 
     Returns match_bets dict keyed by (home_winamax, away_winamax, kickoff_iso).
     """
     rankings = features["rankings"]
-    total_matchdays = features["total_matchdays"]
     form_map = features["form_map"]
     dc_params = features["dc_params"]
     fixtures_df = features["fixtures_df"]

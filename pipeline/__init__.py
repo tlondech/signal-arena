@@ -2,7 +2,9 @@
 Pipeline package — per-league orchestration and settlement helpers.
 """
 
+import json
 import logging
+from pathlib import Path
 
 from config import LeagueConfig, _current_season
 from models.tennis_model import evaluate_tennis_match
@@ -40,6 +42,8 @@ def _evaluate_tennis_league(
 ) -> list[dict]:
     is_wta = league.odds_sport.startswith("tennis_wta_")
     ratings = cfg.wta_elo if is_wta else cfg.atp_elo
+    p = Path(cfg.tennis_crest_map_path)
+    crest_map = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
     if not ratings:
         logger.warning("[%s] No Elo ratings available — skipping.", league.display_name)
         return []
@@ -59,15 +63,25 @@ def _evaluate_tennis_league(
             p2_odds=event["away_odds"],
             ratings=ratings,
             ev_threshold=cfg.ev_threshold,
+            max_prob_ratio=cfg.tennis_max_prob_ratio,
+            min_matches=cfg.tennis_min_matches,
         )
+        # home_win and away_win are mutually exclusive — keep only the highest EV
         if bets:
+            bets = [max(bets, key=lambda b: b["ev"])]
             value_bets.append({
-                "league_key":  league.key,
-                "league_name": league.display_name,
-                "home_team":   player1,
-                "away_team":   player2,
-                "kickoff":     event["commence_time"].isoformat(),
-                "bets":        sorted(bets, key=lambda b: b["ev"], reverse=True),
+                "league_key":      league.key,
+                "league_name":     league.display_name,
+                "home_team":       player1,
+                "away_team":       player2,
+                "home_canonical":  player1,
+                "away_canonical":  player2,
+                "home_crest":      crest_map.get(player1),
+                "away_crest":      crest_map.get(player2),
+                "surface":         surface,
+                "kickoff":         event["commence_time"].isoformat(),
+                "sport":           "tennis",
+                "bets":            sorted(bets, key=lambda b: b["ev"], reverse=True),
             })
     return value_bets
 
