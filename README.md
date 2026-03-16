@@ -54,6 +54,8 @@ Edit `.env` and fill in your keys:
 ```env
 THE_ODDS_API_KEY=your_key_here         # required — https://the-odds-api.com (500 free req/month)
 FOOTBALL_DATA_ORG_API_KEY=your_key     # required for Champions League — https://www.football-data.org (free tier)
+SUPABASE_URL=your_supabase_url         # required — https://supabase.com
+SUPABASE_ANON_KEY=your_anon_key        # required — Supabase project anon key
 NEWS_API_KEY=your_key_here             # optional — https://newsapi.org (100 req/day free tier)
 ```
 
@@ -84,6 +86,9 @@ python main.py
 # Always fetch fresh data from external APIs (use in CI / scheduled runs)
 python main.py --fetch
 
+# Check Odds API coverage per league without writing to DB or running the model
+python main.py --dry-run
+
 # Enable debug-level logging
 python main.py --debug
 ```
@@ -98,6 +103,8 @@ All settings can be overridden via `.env`:
 |----------|---------|-------------|
 | `THE_ODDS_API_KEY` | — | The Odds API key (required) |
 | `FOOTBALL_DATA_ORG_API_KEY` | `""` | football-data.org key (required for UCL) |
+| `SUPABASE_URL` | — | Supabase project URL (required) |
+| `SUPABASE_ANON_KEY` | — | Supabase project anon key (required) |
 | `NEWS_API_KEY` | `""` | NewsAPI key (optional — enables team news for EV ≥ 20% bets within 24h of kickoff) |
 | `ENABLED_LEAGUES` | all | Comma-separated league keys, e.g. `epl,laliga` |
 | `EV_THRESHOLD` | `0.05` | Minimum EV to surface a bet (5%) |
@@ -141,10 +148,17 @@ All settings can be overridden via `.env`:
 │   └── settlement.py                # Dual-source settlement (football-data.org + .co.uk)
 │
 ├── db/
-│   └── schema.py                    # SQLAlchemy models (matches, odds, fixtures, bet_history)
+│   ├── schema.py                    # SQLAlchemy models (matches, odds, fixtures, bet_history)
+│   ├── queries.py                   # SQLite read/write helpers
+│   └── supabase.py                  # Supabase client — remote persistence, settlement, pruning
 │
 ├── notifications/
 │   └── reporter.py                  # HTML + JSON report generation
+│
+├── logs/
+│   └── run.log                      # Rotating log output
+│
+├── serve.py                         # Local dev server (suppresses Chrome DevTools 404 noise)
 │
 └── data/
     ├── team_name_map.json           # Name mapping (Winamax → canonical)
