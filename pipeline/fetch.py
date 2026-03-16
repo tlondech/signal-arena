@@ -36,6 +36,7 @@ def fetch_league_data(
     name_map: dict,
     force_fetch: bool,
     season: int,
+    dry_run: bool = False,
 ) -> tuple[list[dict], list[dict], dict[str, str], dict[str, str], object | None]:
     """
     Fetches or loads data for one league.
@@ -60,6 +61,15 @@ def fetch_league_data(
             totals_bookmakers=cfg.odds_totals_bookmakers,
         )
         upcoming_events = odds_client.fetch_upcoming_odds()
+
+        if dry_run:
+            if not upcoming_events:
+                logger.info("[DRY-RUN] %-15s  → no upcoming matches on Winamax", league.key)
+            else:
+                logger.info("[DRY-RUN] %-15s  → %d match(es) found", league.key, len(upcoming_events))
+                for ev in upcoming_events:
+                    logger.info("    · %s vs %s  (%s)", ev["home_team"], ev["away_team"], ev["commence_time"][:10])
+            return [], [], {}, {}, odds_client
 
         if not upcoming_events:
             logger.debug("[%s] No upcoming matches with Winamax odds — skipping.", league.key)

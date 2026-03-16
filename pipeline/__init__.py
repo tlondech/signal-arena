@@ -25,12 +25,13 @@ def run_league_pipeline(
     engine,
     name_map: dict,
     force_fetch: bool = False,
+    dry_run: bool = False,
 ) -> tuple[list[dict], list[dict]]:
     """
     Runs the full extraction → evaluation pipeline for one league.
     Returns (value_bets, raw_fixtures). Both lists are empty on any recoverable failure.
     """
-    if league.fd_code is None and league.fdo_code is None:
+    if not dry_run and league.fd_code is None and league.fdo_code is None:
         logger.debug("[%s] No data source configured — skipping.", league.key)
         return [], []
 
@@ -41,8 +42,10 @@ def run_league_pipeline(
     )
 
     upcoming_events, raw_fixtures, stage_map, crest_map, odds_client = fetch_league_data(
-        league, cfg, engine, name_map, force_fetch, season,
+        league, cfg, engine, name_map, force_fetch=True if dry_run else force_fetch, season=season, dry_run=dry_run,
     )
+    if dry_run:
+        return [], []
     if not upcoming_events:
         return [], []
 

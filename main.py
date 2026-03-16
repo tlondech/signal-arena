@@ -67,7 +67,7 @@ logger = logging.getLogger(__name__)
 # Main pipeline
 # ---------------------------------------------------------------------------
 
-def run_pipeline(force_fetch: bool = False) -> None:
+def run_pipeline(force_fetch: bool = False, dry_run: bool = False) -> None:
     t0 = time.monotonic()
     cfg = load_config()
     engine = init_db(cfg.db_path)
@@ -83,9 +83,12 @@ def run_pipeline(force_fetch: bool = False) -> None:
     all_value_bets: list[dict] = []
     all_raw_fixtures: list[dict] = []
     for league in cfg.enabled_leagues:
-        league_bets, raw_fixtures = run_league_pipeline(league, cfg, engine, name_map, force_fetch=force_fetch)
+        league_bets, raw_fixtures = run_league_pipeline(league, cfg, engine, name_map, force_fetch=force_fetch, dry_run=dry_run)
         all_value_bets.extend(league_bets)
         all_raw_fixtures.extend(raw_fixtures)
+
+    if dry_run:
+        return
 
     all_value_bets.sort(key=lambda x: x["kickoff"])
     total_bets = sum(len(m["bets"]) for m in all_value_bets)
@@ -122,6 +125,7 @@ def run_pipeline(force_fetch: bool = False) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Betting Recommendation Engine")
     parser.add_argument("--fetch", action="store_true", help="Always fetch fresh data from external APIs (use in CI / scheduled runs)")
+    parser.add_argument("--dry-run", action="store_true", help="Check Odds API coverage per league without writing to DB or running the model")
     parser.add_argument("--debug", action="store_true", help="Enable DEBUG-level logging")
     args = parser.parse_args()
 
@@ -130,7 +134,7 @@ def main() -> None:
 
     logger.info("══ Betting Engine ══  %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     try:
-        run_pipeline(force_fetch=args.fetch)
+        run_pipeline(force_fetch=args.fetch, dry_run=args.dry_run)
     except Exception as e:
         logger.exception("Unhandled error in pipeline: %s", e)
         raise

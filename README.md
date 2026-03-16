@@ -11,8 +11,9 @@ For each upcoming match across supported leagues, the pipeline:
 3. **Builds team ratings** using a Dixon-Coles MLE model (with rolling-window fallback), blended with head-to-head stats
 4. **Computes expected goals** (λ) per team, adjusted for fatigue, rest days, and UCL second-leg aggregate dynamics
 5. **Builds a score probability matrix** via Poisson distribution with Dixon-Coles low-score correction
-6. **Calculates Expected Value** (EV = true_prob × decimal_odds − 1) for each outcome
-7. **Generates a report** — HTML dashboard + JSON — and opens it in the browser
+6. **Calculates Expected Value** (EV = true_prob × decimal_odds − 1) for each outcome; caps the model/implied probability ratio to filter out hallucinated high-EV bets; surfaces only the best bet per market group (1X2, O/U 2.5)
+7. **Fetches team news** (optional) — for bets with EV ≥ 20% within 24h of kickoff, pulls injury/suspension context from NewsAPI using rule-based sentence extraction
+8. **Generates a report** — HTML dashboard + JSON — and opens it in the browser
 
 Bets are recommended when EV exceeds a configurable threshold (default: 5%).
 
@@ -53,6 +54,7 @@ Edit `.env` and fill in your keys:
 ```env
 THE_ODDS_API_KEY=your_key_here         # required — https://the-odds-api.com (500 free req/month)
 FOOTBALL_DATA_ORG_API_KEY=your_key     # required for Champions League — https://www.football-data.org (free tier)
+NEWS_API_KEY=your_key_here             # optional — https://newsapi.org (100 req/day free tier)
 ```
 
 ### 3. Run
@@ -96,6 +98,7 @@ All settings can be overridden via `.env`:
 |----------|---------|-------------|
 | `THE_ODDS_API_KEY` | — | The Odds API key (required) |
 | `FOOTBALL_DATA_ORG_API_KEY` | `""` | football-data.org key (required for UCL) |
+| `NEWS_API_KEY` | `""` | NewsAPI key (optional — enables team news for EV ≥ 20% bets within 24h of kickoff) |
 | `ENABLED_LEAGUES` | all | Comma-separated league keys, e.g. `epl,laliga` |
 | `EV_THRESHOLD` | `0.05` | Minimum EV to surface a bet (5%) |
 | `ROLLING_WINDOW` | `5` | Number of recent matches for rolling stats |
@@ -110,6 +113,7 @@ All settings can be overridden via `.env`:
 .
 ├── main.py                          # Pipeline entry point
 ├── config.py                        # Configuration and league definitions
+├── constants.py                     # Shared constants (EV thresholds, news fetch config)
 ├── requirements.txt
 ├── .env.example
 ├── index.html                       # Generated report (committed by CI for GitHub Pages)
@@ -122,11 +126,19 @@ All settings can be overridden via `.env`:
 │   ├── footballdata_client.py       # football-data.co.uk CSV client (domestic leagues)
 │   ├── footballdataorg_client.py    # football-data.org API client (UCL)
 │   ├── soccerdata_client.py         # Alternative data source
-│   └── stats.py                     # Stats processing utilities
+│   ├── stats.py                     # Stats processing utilities
+│   └── team_news.py                 # NewsAPI client — injury/suspension context for high-EV bets
 │
 ├── models/
 │   ├── features.py                  # Feature engineering (Dixon-Coles, H2H, fatigue)
 │   └── evaluator.py                 # Poisson probability + EV calculation
+│
+├── pipeline/
+│   ├── __init__.py                  # Per-league orchestration (run_league_pipeline)
+│   ├── fetch.py                     # Data fetching and SQLite persistence
+│   ├── evaluate.py                  # Feature building, match evaluation, news enrichment
+│   ├── helpers.py                   # Shared helpers (is_live, build_leg2_map)
+│   └── settlement.py                # Dual-source settlement (football-data.org + .co.uk)
 │
 ├── db/
 │   └── schema.py                    # SQLAlchemy models (matches, odds, fixtures, bet_history)
@@ -162,6 +174,15 @@ EV = (model_probability × decimal_odds) − 1
 
 A positive EV indicates the model estimates a higher probability than the bookmaker's implied odds. Bets are only surfaced when EV > threshold.
 
+### Bet Filtering
+Two additional filters are applied after EV calculation to reduce false positives:
+
+- **Probability ratio cap:** Bets are dropped when `model_prob / implied_prob > 1.3` (1.4 for UCL). This prevents the model from recommending bets where it is implausibly more confident than the market.
+- **Market-group deduplication:** Within each market group (1X2 and O/U 2.5), only the single highest-EV outcome is surfaced. This avoids recommending conflicting bets on the same match.
+
+### Team News Enrichment
+When `NEWS_API_KEY` is set, the pipeline fetches recent articles from NewsAPI for both teams in high-EV matches (EV ≥ 20%) scheduled within the next 24 hours. A rule-based extractor surfaces the top injury and suspension sentences per team — no LLM required. Results are stored in the `team_news` field of each bet and displayed in the HTML report.
+
 ---
 
 ## Output
@@ -171,6 +192,7 @@ Interactive dashboard showing:
 - Today's value bets grouped by league, with odds, true probability, and EV
 - Team form, standings position, rest days
 - UCL aggregate context for second legs
+- Team news (injury/suspension context) for high-EV bets near kickoff (requires `NEWS_API_KEY`)
 - Bet history with settled outcomes (won/lost)
 - Filter drawer to narrow bets by league, market, or EV range
 - Bet types modal explaining each market in the page header
@@ -185,6 +207,8 @@ SQLite database with four tables:
 - `fixtures` — finished match results with xG
 - `bet_history` — all recommended bets and their resolved outcomes
 
+On every run, unsettled future bets that are no longer in the recommended set (e.g. dropped by the ratio cap on a subsequent run) are automatically pruned from both the local SQLite database and Supabase.
+
 ---
 
 ## External Data Sources
@@ -194,3 +218,4 @@ SQLite database with four tables:
 | [The Odds API](https://the-odds-api.com) | Live odds (Winamax) | 500 req/month free |
 | [football-data.co.uk](https://football-data.co.uk) | Historical results for domestic leagues | Free |
 | [football-data.org](https://www.football-data.org) | Champions League fixtures and results | Free tier available |
+| [NewsAPI](https://newsapi.org) | Team news and injury context (optional) | 100 req/day free tier |
