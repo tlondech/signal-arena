@@ -4,6 +4,7 @@ Shared helpers and constants used across the pipeline.
 
 from datetime import datetime, timedelta, timezone
 
+from constants import LIVE_MATCH_WINDOW_HOURS
 from models.features import resolve_team_name
 
 logger_name = __name__
@@ -20,7 +21,7 @@ _OUTCOME_LABELS = {
 }
 
 
-def is_live(commence_time: datetime, window_hours: float = 2.5) -> bool:
+def is_live(commence_time: datetime, window_hours: float = LIVE_MATCH_WINDOW_HOURS) -> bool:
     """Return True if the match is currently in progress (kicked off but not yet finished)."""
     now = datetime.now(timezone.utc)
     return commence_time <= now < commence_time + timedelta(hours=window_hours)

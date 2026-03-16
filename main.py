@@ -23,6 +23,7 @@ from datetime import date, datetime
 from sqlalchemy.orm import Session
 
 from config import load_config
+from constants import LOCAL_REPORT_URL
 from db.schema import init_db
 from db.queries import prune_stale_bets, save_bets_to_history
 from db.supabase import get_supabase_client, prune_stale_supabase_bets, push_bets_to_supabase, settle_supabase_bets
@@ -119,7 +120,7 @@ def run_pipeline(force_fetch: bool = False, dry_run: bool = False) -> None:
     prune_stale_supabase_bets(supabase, all_value_bets, processed_league_keys)
     push_bets_to_supabase(supabase, all_value_bets, date.today().isoformat())
 
-    webbrowser.open("http://localhost:8000")
+    webbrowser.open(LOCAL_REPORT_URL)
 
 
 def main() -> None:

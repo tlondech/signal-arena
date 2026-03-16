@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 
 import requests
 
+from constants import ODDS_API_QUOTA_CRITICAL, ODDS_API_TIMEOUT, TOTALS_LINE_TOLERANCE
+
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.the-odds-api.com"
@@ -56,13 +58,13 @@ class OddsAPIClient:
             "dateFormat": "iso",
         }
 
-        response = requests.get(url, params=params, timeout=15)
+        response = requests.get(url, params=params, timeout=ODDS_API_TIMEOUT)
 
         quota_header = response.headers.get("x-requests-remaining")
         if quota_header is not None:
             self._quota_remaining = int(quota_header)
             logger.debug("The Odds API quota remaining: %s", self._quota_remaining)
-            if self._quota_remaining < 10:
+            if self._quota_remaining < ODDS_API_QUOTA_CRITICAL:
                 raise OddsAPIError(
                     f"Quota critically low ({self._quota_remaining} requests remaining). "
                     "Aborting to preserve credits."
@@ -150,7 +152,7 @@ class OddsAPIClient:
             if not totals:
                 continue
             for outcome in totals.get("outcomes", []):
-                if abs(outcome.get("point", 0) - 2.5) < 0.01:
+                if abs(outcome.get("point", 0) - 2.5) < TOTALS_LINE_TOLERANCE:
                     if outcome["name"] == "Over" and over_2_5_odds is None:
                         over_2_5_odds = outcome["price"]
                     elif outcome["name"] == "Under" and under_2_5_odds is None:

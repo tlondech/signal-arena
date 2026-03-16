@@ -4,6 +4,8 @@ import urllib.request
 
 import pandas as pd
 
+from constants import FOOTBALLDATA_COUK_TIMEOUT
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,7 +40,7 @@ class FootballDataClient:
         """
         url = f"{self.BASE_URL}/{self._season_str}/{self.fd_code}.csv"
         try:
-            with urllib.request.urlopen(url, timeout=30) as r:
+            with urllib.request.urlopen(url, timeout=FOOTBALLDATA_COUK_TIMEOUT) as r:
                 raw = r.read()
         except Exception as e:
             raise FootballDataError(f"Failed to download {url}: {e}") from e

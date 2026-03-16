@@ -8,6 +8,12 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from config import LeagueConfig
+from constants import (
+    DIXON_COLES_MIN_FIXTURES,
+    DIXON_COLES_XI,
+    TEAM_NEWS_CUTOFF_HOURS,
+    UCL_PROB_RATIO_CAP,
+)
 from db.queries import load_all_fixtures_df, load_h2h_fixtures_df
 from models.evaluator import evaluate_match
 from models.features import (
@@ -51,7 +57,7 @@ def build_features(
         league.key, league_avgs["avg_home_goals"], league_avgs["avg_away_goals"],
     )
 
-    dc_params = fit_dixon_coles(fixtures_df, xi=0.0065, min_fixtures=10)
+    dc_params = fit_dixon_coles(fixtures_df, xi=DIXON_COLES_XI, min_fixtures=DIXON_COLES_MIN_FIXTURES)
     if dc_params is not None:
         logger.info(
             "[%s] Dixon-Coles fit: %d teams, %d fixtures, ρ=%.4f, γ=%.4f",
@@ -60,8 +66,8 @@ def build_features(
         )
     else:
         logger.warning(
-            "[%s] Not enough fixtures for Dixon-Coles (<10) — using rolling-window fallback.",
-            league.display_name,
+            "[%s] Not enough fixtures for Dixon-Coles (<%d) — using rolling-window fallback.",
+            league.display_name, DIXON_COLES_MIN_FIXTURES,
         )
 
     rankings: dict[str, int] = {}
@@ -113,13 +119,6 @@ def evaluate_matches(
     all_fixtures_df = features["all_fixtures_df"]
     h2h_fixtures_df = features["h2h_fixtures_df"]
     universal_names = features["universal_names"]
-
-    # Augment stage labels with total matchweek count
-    if total_matchdays:
-        stage_map = {
-            k: (f"{v} / {total_matchdays}" if v.startswith("Matchday ") else v)
-            for k, v in stage_map.items()
-        }
 
     live_count = sum(1 for e in upcoming_events if is_live(e["commence_time"]))
     if live_count:
@@ -245,7 +244,7 @@ def evaluate_matches(
             {"home_win", "draw", "away_win"},
             {"over_2_5", "under_2_5"},
         ]
-        ratio_cap = 1.4 if league.key == "ucl" else cfg.max_prob_ratio
+        ratio_cap = UCL_PROB_RATIO_CAP if league.key == "ucl" else cfg.max_prob_ratio
         filtered_value_bets = []
         for group in _market_groups:
             candidates = [
@@ -294,7 +293,7 @@ def enrich_with_news(value_bets: list[dict], cfg) -> None:
         if kickoff.tzinfo is None:
             kickoff = kickoff.replace(tzinfo=timezone.utc)
         hours_until_kickoff = (kickoff - now_utc).total_seconds() / 3600
-        if hours_until_kickoff <= 24:
+        if hours_until_kickoff <= TEAM_NEWS_CUTOFF_HOURS:
             days_back = max(
                 match.get("home_rest_days") or NEWS_DAYS_BACK_DEFAULT,
                 match.get("away_rest_days") or NEWS_DAYS_BACK_DEFAULT,

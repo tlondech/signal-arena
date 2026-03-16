@@ -9,6 +9,7 @@ from typing import cast
 
 from supabase import create_client, Client
 
+from constants import FIXTURE_DATE_TOLERANCE_SECONDS
 from models.features import resolve_team_name
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ def settle_supabase_bets(supabase: Client, all_raw_fixtures: list[dict], name_ma
             fixture_dt = datetime.fromisoformat(str(fixture_dt))
         if fixture_dt.tzinfo is None:
             fixture_dt = fixture_dt.replace(tzinfo=timezone.utc)
-        if abs((fixture_dt - kickoff_dt).total_seconds()) > 86400:
+        if abs((fixture_dt - kickoff_dt).total_seconds()) > FIXTURE_DATE_TOLERANCE_SECONDS:
             continue
 
         hg, ag = fixture["home_goals"], fixture["away_goals"]

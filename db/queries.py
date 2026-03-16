@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 from sqlalchemy.orm import Session
 
+from constants import FIXTURE_DATE_TOLERANCE_DAYS, H2H_LOOKBACK_SEASONS
 from db.schema import BetHistory, Fixture, Match, Odds
 
 logger = logging.getLogger(__name__)
@@ -142,7 +143,7 @@ def load_raw_fixtures_from_db(session: Session, league_key: str, season: int) ->
     } for r in rows]
 
 
-def load_h2h_fixtures_df(session: Session, league_key: str, current_season: int, n_seasons: int = 3):
+def load_h2h_fixtures_df(session: Session, league_key: str, current_season: int, n_seasons: int = H2H_LOOKBACK_SEASONS):
     """Loads finished fixtures for a league across the last n_seasons (including current) for H2H lookups."""
     seasons = [current_season - i for i in range(n_seasons)]
     rows = session.query(Fixture).filter(
@@ -322,8 +323,8 @@ def settle_bets(session) -> int:
         fixture = session.query(Fixture).filter(
             Fixture.home_team == bet.home_canonical,
             Fixture.away_team == bet.away_canonical,
-            Fixture.fixture_date >= bet.kickoff - timedelta(days=1),
-            Fixture.fixture_date <= bet.kickoff + timedelta(days=1),
+            Fixture.fixture_date >= bet.kickoff - timedelta(days=FIXTURE_DATE_TOLERANCE_DAYS),
+            Fixture.fixture_date <= bet.kickoff + timedelta(days=FIXTURE_DATE_TOLERANCE_DAYS),
         ).first()
 
         if fixture is None:

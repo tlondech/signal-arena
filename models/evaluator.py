@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.stats import poisson
 
+from constants import DIXON_COLES_RHO_FLOOR
+
 
 def build_score_matrix(
     home_lambda: float,
@@ -20,10 +22,10 @@ def build_score_matrix(
     matrix = np.outer(home_probs, away_probs)
     if rho != 0.0:
         lam1, lam2 = home_lambda, away_lambda
-        matrix[0, 0] *= max(1.0 - lam1 * lam2 * rho, 1e-10)
-        matrix[1, 0] *= max(1.0 + lam2 * rho,         1e-10)
-        matrix[0, 1] *= max(1.0 + lam1 * rho,         1e-10)
-        matrix[1, 1] *= max(1.0 - rho,                 1e-10)
+        matrix[0, 0] *= max(1.0 - lam1 * lam2 * rho, DIXON_COLES_RHO_FLOOR)
+        matrix[1, 0] *= max(1.0 + lam2 * rho,         DIXON_COLES_RHO_FLOOR)
+        matrix[0, 1] *= max(1.0 + lam1 * rho,         DIXON_COLES_RHO_FLOOR)
+        matrix[1, 1] *= max(1.0 - rho,                 DIXON_COLES_RHO_FLOOR)
         matrix /= matrix.sum()
     return matrix
 

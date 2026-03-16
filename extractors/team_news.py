@@ -12,7 +12,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-from constants import NEWS_DAYS_BACK_DEFAULT, NEWS_FETCH_SIZE
+from constants import NEWS_DAYS_BACK_DEFAULT, NEWS_FETCH_SIZE, NEWSAPI_TIMEOUT, TOP_NEWS_SENTENCES
 
 _NEWSAPI_URL = "https://newsapi.org/v2/everything"
 
@@ -40,7 +40,7 @@ def _fetch_articles(team: str, api_key: str, days_back: int) -> list[dict]:
         "apiKey": api_key,
     }
     try:
-        resp = requests.get(_NEWSAPI_URL, params=params, timeout=10)
+        resp = requests.get(_NEWSAPI_URL, params=params, timeout=NEWSAPI_TIMEOUT)
         resp.raise_for_status()
         return resp.json().get("articles", [])
     except Exception as exc:
@@ -125,7 +125,7 @@ def _extract_key_sentences(articles: list[dict], team: str, opponent: str) -> st
             ).replace("…", "").strip()
             top.append(clean_sentence)
 
-        if len(top) == 2:
+        if len(top) == TOP_NEWS_SENTENCES:
             break
 
     return " ".join(top)

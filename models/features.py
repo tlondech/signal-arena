@@ -7,12 +7,30 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
-logger = logging.getLogger(__name__)
+from constants import (
+    DEFAULT_AVG_AWAY_GOALS,
+    DEFAULT_AVG_HOME_GOALS,
+    DIXON_COLES_ATTACK_DEFENSE_BOUND,
+    DIXON_COLES_FTOL,
+    DIXON_COLES_GAMMA_BOUNDS,
+    DIXON_COLES_INIT_GAMMA,
+    DIXON_COLES_INIT_RHO,
+    DIXON_COLES_MAX_ITER,
+    DIXON_COLES_MIN_FIXTURES,
+    DIXON_COLES_RHO_BOUNDS,
+    DIXON_COLES_RHO_FLOOR,
+    DIXON_COLES_XI,
+    EXP_DECAY_WEIGHT,
+    FATIGUE_FACTOR,
+    FATIGUE_THRESHOLD_DAYS,
+    H2H_BLEND_WEIGHT,
+    H2H_MIN_FIXTURES,
+    LAMBDA_MAX,
+    LAMBDA_MIN,
+    MIN_TEAM_FIXTURES,
+)
 
-_FATIGUE_THRESHOLD = 4   # days since last match → team considered fatigued
-_FATIGUE_FACTOR    = 1.08  # ~8% more goals conceded when fatigued
-_H2H_BLEND        = 0.30   # weight of H2H stats vs form-based stats
-_H2H_MIN_FIXTURES = 2      # minimum H2H fixtures to apply blend
+logger = logging.getLogger(__name__)
 
 
 def _apply_agg_adjustment(
@@ -171,7 +189,11 @@ def compute_league_averages(fixtures_df: pd.DataFrame) -> dict:
     Computes league-wide average goals per match (home and away separately).
     """
     if fixtures_df.empty:
-        return {"avg_home_goals": 1.5, "avg_away_goals": 1.1, "avg_total_goals": 2.6}
+        return {
+            "avg_home_goals": DEFAULT_AVG_HOME_GOALS,
+            "avg_away_goals": DEFAULT_AVG_AWAY_GOALS,
+            "avg_total_goals": DEFAULT_AVG_HOME_GOALS + DEFAULT_AVG_AWAY_GOALS,
+        }
 
     avg_home = fixtures_df["home_goals_eff"].mean()
     avg_away = fixtures_df["away_goals_eff"].mean()
@@ -182,7 +204,7 @@ def compute_league_averages(fixtures_df: pd.DataFrame) -> dict:
     }
 
 
-def _exp_weighted_mean(series: pd.Series, decay: float = 0.8) -> float:
+def _exp_weighted_mean(series: pd.Series, decay: float = EXP_DECAY_WEIGHT) -> float:
     """
     Exponentially-decayed weighted mean.
     Most recent row = weight 1.0, second most recent = decay, etc.
@@ -217,7 +239,7 @@ def compute_team_attack_defense(
     home_matches = fixtures_df[fixtures_df["home_team"] == team_name].tail(rolling_window)
     away_matches = fixtures_df[fixtures_df["away_team"] == team_name].tail(rolling_window)
 
-    if len(home_matches) < 3 or len(away_matches) < 3:
+    if len(home_matches) < MIN_TEAM_FIXTURES or len(away_matches) < MIN_TEAM_FIXTURES:
         logger.debug(
             "Team '%s' has insufficient fixture history (%d home, %d away). Skipping.",
             team_name, len(home_matches), len(away_matches),
@@ -248,7 +270,7 @@ def compute_h2h_stats(
         ((fixtures_df["home_team"] == home_team) & (fixtures_df["away_team"] == away_team)) |
         ((fixtures_df["home_team"] == away_team) & (fixtures_df["away_team"] == home_team))
     ]
-    if len(h2h) < _H2H_MIN_FIXTURES:
+    if len(h2h) < H2H_MIN_FIXTURES:
         return None
 
     # Matches where home_team played at home
@@ -338,8 +360,8 @@ def build_poisson_inputs(
     if h2h is not None:
         h2h_home_lambda = (h2h["home_attack"] / avg_h) * (h2h["away_defense"] / avg_a) * avg_h
         h2h_away_lambda = (h2h["away_attack"] / avg_a) * (h2h["home_defense"] / avg_h) * avg_a
-        home_lambda = (1 - _H2H_BLEND) * home_lambda + _H2H_BLEND * h2h_home_lambda
-        away_lambda = (1 - _H2H_BLEND) * away_lambda + _H2H_BLEND * h2h_away_lambda
+        home_lambda = (1 - H2H_BLEND_WEIGHT) * home_lambda + H2H_BLEND_WEIGHT * h2h_home_lambda
+        away_lambda = (1 - H2H_BLEND_WEIGHT) * away_lambda + H2H_BLEND_WEIGHT * h2h_away_lambda
         h2h_used = True
         logger.debug(
             "H2H blend applied for %s vs %s (h2h_λ home=%.2f away=%.2f)",
@@ -358,14 +380,14 @@ def build_poisson_inputs(
         away_lookup = away_universal if away_universal is not None else away_team
         home_rest_days = compute_rest_days(rest_df, home_lookup, match_date)
         away_rest_days = compute_rest_days(rest_df, away_lookup, match_date)
-        if home_rest_days is not None and home_rest_days < _FATIGUE_THRESHOLD:
-            away_lambda *= _FATIGUE_FACTOR
+        if home_rest_days is not None and home_rest_days < FATIGUE_THRESHOLD_DAYS:
+            away_lambda *= FATIGUE_FACTOR
             logger.debug(
                 "%s fatigued (%dd rest) → away_λ nudged to %.2f",
                 home_team, home_rest_days, away_lambda,
             )
-        if away_rest_days is not None and away_rest_days < _FATIGUE_THRESHOLD:
-            home_lambda *= _FATIGUE_FACTOR
+        if away_rest_days is not None and away_rest_days < FATIGUE_THRESHOLD_DAYS:
+            home_lambda *= FATIGUE_FACTOR
             logger.debug(
                 "%s fatigued (%dd rest) → home_λ nudged to %.2f",
                 away_team, away_rest_days, home_lambda,
@@ -380,8 +402,8 @@ def build_poisson_inputs(
         )
 
     # Clamp to reasonable range to prevent degenerate Poisson inputs
-    home_lambda = max(0.1, min(home_lambda, 6.0))
-    away_lambda = max(0.1, min(away_lambda, 6.0))
+    home_lambda = max(LAMBDA_MIN, min(home_lambda, LAMBDA_MAX))
+    away_lambda = max(LAMBDA_MIN, min(away_lambda, LAMBDA_MAX))
 
     return {
         "home_lambda":    home_lambda,
@@ -394,8 +416,8 @@ def build_poisson_inputs(
 
 def fit_dixon_coles(
     fixtures_df: pd.DataFrame,
-    xi: float = 0.0065,
-    min_fixtures: int = 10,
+    xi: float = DIXON_COLES_XI,
+    min_fixtures: int = DIXON_COLES_MIN_FIXTURES,
 ) -> dict | None:
     """
     Fits the Dixon-Coles (1997) model via Maximum Likelihood Estimation.
@@ -460,7 +482,7 @@ def fit_dixon_coles(
         for hi, ai, x_int, y_int, x_eff, y_eff, w in rows:
             lam1 = math.exp(alpha[hi] + beta[ai] + gamma)
             lam2 = math.exp(alpha[ai] + beta[hi])
-            tau_val = max(_tau(x_int, y_int, lam1, lam2, rho), 1e-10)
+            tau_val = max(_tau(x_int, y_int, lam1, lam2, rho), DIXON_COLES_RHO_FLOOR)
             ll = (
                 math.log(tau_val)
                 + x_eff * math.log(lam1) - lam1 - math.lgamma(x_eff + 1)
@@ -471,14 +493,15 @@ def fit_dixon_coles(
 
     # Parameter vector: α₁…α_{n-1}, β₀…β_{n-1}, γ, ρ  (length = 2n+1)
     x0 = np.zeros(2 * n + 1)
-    x0[2 * n - 1] = 0.3   # γ: reasonable home advantage
-    x0[2 * n]     = -0.1  # ρ: typical negative low-score correction
+    x0[2 * n - 1] = DIXON_COLES_INIT_GAMMA
+    x0[2 * n]     = DIXON_COLES_INIT_RHO
 
+    _ab = DIXON_COLES_ATTACK_DEFENSE_BOUND
     bounds = (
-        [(-3.0, 3.0)] * (n - 1)   # α (team 0 is fixed at 0)
-        + [(-3.0, 3.0)] * n       # β
-        + [(0.0, 2.0)]            # γ
-        + [(-1.0, 1.0)]           # ρ
+        [(-_ab, _ab)] * (n - 1)              # α (team 0 is fixed at 0)
+        + [(-_ab, _ab)] * n                  # β
+        + [DIXON_COLES_GAMMA_BOUNDS]          # γ
+        + [DIXON_COLES_RHO_BOUNDS]            # ρ
     )
 
     result = minimize(
@@ -486,7 +509,7 @@ def fit_dixon_coles(
         x0,
         method="L-BFGS-B",
         bounds=bounds,
-        options={"maxiter": 500, "ftol": 1e-9},
+        options={"maxiter": DIXON_COLES_MAX_ITER, "ftol": DIXON_COLES_FTOL},
     )
     if not result.success:
         logger.warning("Dixon-Coles optimisation did not fully converge: %s", result.message)
@@ -542,8 +565,8 @@ def build_poisson_inputs_dc(
             if h2h is not None:
                 h2h_home_lambda = (h2h["home_attack"] / avg_h) * (h2h["away_defense"] / avg_a) * avg_h
                 h2h_away_lambda = (h2h["away_attack"] / avg_a) * (h2h["home_defense"] / avg_h) * avg_a
-                home_lambda = (1 - _H2H_BLEND) * home_lambda + _H2H_BLEND * h2h_home_lambda
-                away_lambda = (1 - _H2H_BLEND) * away_lambda + _H2H_BLEND * h2h_away_lambda
+                home_lambda = (1 - H2H_BLEND_WEIGHT) * home_lambda + H2H_BLEND_WEIGHT * h2h_home_lambda
+                away_lambda = (1 - H2H_BLEND_WEIGHT) * away_lambda + H2H_BLEND_WEIGHT * h2h_away_lambda
                 h2h_used = True
                 logger.debug(
                     "H2H blend applied (DC) for %s vs %s (h2h_λ home=%.2f away=%.2f)",
@@ -561,14 +584,14 @@ def build_poisson_inputs_dc(
         away_lookup = away_universal if away_universal is not None else away_team
         home_rest_days = compute_rest_days(rest_df, home_lookup, match_date)
         away_rest_days = compute_rest_days(rest_df, away_lookup, match_date)
-        if home_rest_days is not None and home_rest_days < _FATIGUE_THRESHOLD:
-            away_lambda *= _FATIGUE_FACTOR
+        if home_rest_days is not None and home_rest_days < FATIGUE_THRESHOLD_DAYS:
+            away_lambda *= FATIGUE_FACTOR
             logger.debug(
                 "%s fatigued (%dd rest) → away_λ nudged to %.2f",
                 home_team, home_rest_days, away_lambda,
             )
-        if away_rest_days is not None and away_rest_days < _FATIGUE_THRESHOLD:
-            home_lambda *= _FATIGUE_FACTOR
+        if away_rest_days is not None and away_rest_days < FATIGUE_THRESHOLD_DAYS:
+            home_lambda *= FATIGUE_FACTOR
             logger.debug(
                 "%s fatigued (%dd rest) → home_λ nudged to %.2f",
                 away_team, away_rest_days, home_lambda,
@@ -582,8 +605,8 @@ def build_poisson_inputs_dc(
             leg2_context["agg_diff"], home_lambda, away_lambda,
         )
 
-    home_lambda = max(0.1, min(home_lambda, 6.0))
-    away_lambda = max(0.1, min(away_lambda, 6.0))
+    home_lambda = max(LAMBDA_MIN, min(home_lambda, LAMBDA_MAX))
+    away_lambda = max(LAMBDA_MIN, min(away_lambda, LAMBDA_MAX))
 
     return {
         "home_lambda":    home_lambda,

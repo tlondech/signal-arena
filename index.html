@@ -439,6 +439,14 @@ const LEAGUE_SHORT_NAMES = {
   ligue1:     "Ligue 1",
 };
 
+const LEAGUE_TOTAL_MATCHDAYS = {
+  epl:        38,
+  laliga:     38,
+  bundesliga: 34,
+  seriea:     38,
+  ligue1:     34,
+};
+
 const LEAGUE_COLORS = {
   epl:        "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
   laliga:     "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
@@ -587,6 +595,8 @@ function renderCard(m, opts = {}) {
 
   const shortLeagueName = LEAGUE_SHORT_NAMES[m.league_key] || m.league_name;
   let shortStage = m.stage || "";
+  const totalMD = LEAGUE_TOTAL_MATCHDAYS[m.league_key];
+  if (totalMD && /^Matchday \d+$/.test(shortStage)) shortStage += ` / ${totalMD}`;
   shortStage = shortStage
     .replace("Matchday", "MD")
     .replace("Round of 16", "R16")
@@ -800,7 +810,7 @@ function renderBetsPanel() {
 
   let html = "";
   for (const [dateLabel, matches] of byDate) {
-    html += `<h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-6 mb-3 first:mt-0">${dateLabel}</h2>`;
+    html += `<h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-6 mb-3 first:mt-0">${dateLabel} <span class="ml-1 normal-case font-normal opacity-60">• ${matches.length} match${matches.length===1?'':'es'}</span></h2>`;
     html += `<div class="grid gap-4 sm:grid-cols-2">`;
     html += matches.map(renderCard).join("");
     html += `</div>`;
@@ -959,7 +969,7 @@ function renderHistory() {
     }
     let html = "";
     for (const [dateLabel, dayMatches] of byDate) {
-      html += `<h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-6 mb-3 first:mt-0">${dateLabel}</h2>`;
+      html += `<h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-6 mb-3 first:mt-0">${dateLabel} <span class="ml-1 normal-case font-normal opacity-60">• ${dayMatches.length} match${dayMatches.length===1?'':'es'}</span></h2>`;
       html += `<div class="grid gap-4">`;
       html += dayMatches.map(m => renderCard(m, { showResult: true })).join("");
       html += `</div>`;

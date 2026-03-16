@@ -4,6 +4,8 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 
+from constants import FOOTBALLDATA_ORG_MIN_INTERVAL, FOOTBALLDATA_ORG_TIMEOUT
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,7 +23,7 @@ class FootballDataOrgClient:
     BASE_URL = "https://api.football-data.org/v4"
     # Class-level rate limiter: free tier allows 10 req/min → 1 req per 6s
     _last_request_time: float = 0.0
-    _min_interval: float = 6.5
+    _min_interval: float = FOOTBALLDATA_ORG_MIN_INTERVAL
 
     def _throttle(self) -> None:
         elapsed = time.monotonic() - FootballDataOrgClient._last_request_time
@@ -47,7 +49,7 @@ class FootballDataOrgClient:
         req = urllib.request.Request(url, headers={"X-Auth-Token": self.api_key})
         self._throttle()
         try:
-            with urllib.request.urlopen(req, timeout=30) as r:
+            with urllib.request.urlopen(req, timeout=FOOTBALLDATA_ORG_TIMEOUT) as r:
                 data = json.loads(r.read())
         except Exception as e:
             raise FootballDataOrgError(f"Failed to fetch {url}: {e}") from e
@@ -124,7 +126,7 @@ class FootballDataOrgClient:
         req = urllib.request.Request(url, headers={"X-Auth-Token": self.api_key})
         self._throttle()
         try:
-            with urllib.request.urlopen(req, timeout=30) as r:
+            with urllib.request.urlopen(req, timeout=FOOTBALLDATA_ORG_TIMEOUT) as r:
                 data = json.loads(r.read())
         except Exception as e:
             logger.warning("fetch_stage_map: failed to fetch %s: %s", url, e)
