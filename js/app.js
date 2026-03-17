@@ -296,6 +296,21 @@ async function init() {
   }, { rootMargin: "200px" });
   state.historyObserver.observe(sentinel);
 
+  // Desktop refresh button
+  const refreshBtn  = document.getElementById("refresh-btn");
+  const refreshIcon = document.getElementById("refresh-icon");
+  refreshBtn.addEventListener("click", async () => {
+    if (refreshIcon.classList.contains("spinning")) return;
+    refreshIcon.classList.add("spinning");
+    refreshBtn.disabled = true;
+    try {
+      await refreshData();
+    } finally {
+      refreshIcon.classList.remove("spinning");
+      refreshBtn.disabled = false;
+    }
+  });
+
   showLoading();
   await refreshData();
 }
