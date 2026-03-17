@@ -1,6 +1,6 @@
-# Value Bet Finder — Football & Tennis
+# Value Bet Finder — Football, Tennis & Basketball
 
-A statistical betting recommendation engine that identifies value bets across professional football and tennis. It fetches live odds from The Odds API (Winamax lines), models outcomes using sport-specific predictive models, and surfaces bets where the bookmaker's implied probability is lower than the model's estimate.
+A statistical betting recommendation engine that identifies value bets across professional football, tennis, and NBA basketball. It fetches live odds from The Odds API (Winamax lines), models outcomes using sport-specific predictive models, and surfaces bets where the bookmaker's implied probability is lower than the model's estimate.
 
 ## How It Works
 
@@ -29,9 +29,26 @@ For each active ATP/WTA tournament (discovered automatically each run):
 
 Elo ratings are computed once per run and shared across all tournaments for the same tour (ATP or WTA).
 
+### NBA basketball pipeline
+
+1. **Fetches live odds** from The Odds API (Winamax lines), including spreads/handicap market
+2. **Downloads team game logs** from the NBA Stats API via the `nba_api` package (no API key required) — current season
+3. **Computes team efficiency ratings** per team: rolling average of points scored (attack) and points allowed (defense), with separate home/away splits; stores each team's most recent game date for fatigue detection
+4. **Predicts expected scores** using the Gaussian efficiency model:
+   ```
+   home_expected = home_attack_home + league_avg − away_defense + HOME_ADV (3.5 pts)
+   away_expected = away_attack_away + league_avg − home_defense
+   ```
+5. **Applies back-to-back fatigue adjustment**: teams with ≤1 day of rest since their last game have their expected score reduced by 2.5 pts; flagged with ⏱ in the report
+6. **Calculates win, O/U, and spread cover probabilities** from a Normal distribution over the point differential and total
+7. **Calculates Expected Value** using the same formula as other sports; surfaces the best EV bet per market group (moneyline, totals, spreads)
+
+Team ratings are computed once per run. Games currently in progress (within a 3.5-hour live window to account for overtime) are skipped.
+
 ### Supported Markets
 - **Football:** 1X2 (Home Win / Draw / Away Win), Over/Under goals (line auto-selected per event)
 - **Tennis:** Match winner (Player 1 Win / Player 2 Win)
+- **Basketball:** Moneyline (Home Win / Away Win), Over/Under points, Spread/Handicap
 
 ### Supported Leagues & Tournaments
 
@@ -50,6 +67,12 @@ Elo ratings are computed once per run and shared across all tournaments for the 
 **Tennis — discovered dynamically each run:**
 
 All active ATP and WTA tournaments at run time (ATP 250 / 500 / 1000, Grand Slams, WTA equivalents). New events appear automatically without any configuration change.
+
+**Basketball:**
+
+| Key | Competition |
+|-----|-------------|
+| `nba` | NBA |
 
 ---
 
@@ -124,11 +147,15 @@ All settings can be overridden via `.env`:
 | `SUPABASE_URL` | — | Supabase project URL (required) |
 | `SUPABASE_ANON_KEY` | — | Supabase project anon key (required) |
 | `NEWS_API_KEY` | `""` | NewsAPI key (optional — enables team news for EV ≥ 20% bets within 24h of kickoff) |
-| `ENABLED_LEAGUES` | all | Comma-separated football league keys, e.g. `epl,laliga` (tennis is always auto-discovered) |
+| `ENABLED_LEAGUES` | all | Comma-separated league keys, e.g. `epl,laliga,nba` (tennis is always auto-discovered) |
 | `EV_THRESHOLD` | `0.05` | Minimum EV to surface a bet (5%) |
-| `ROLLING_WINDOW` | `5` | Number of recent matches for rolling stats (football) |
+| `ROLLING_WINDOW` | `5` | Number of recent matches for rolling stats (football); doubled for NBA |
 | `POISSON_MAX_GOALS` | `8` | Score matrix size (0–N goals) (football) |
 | `ODDS_TOTALS_BOOKMAKERS` | `""` | Fallback bookmaker for O/U when Winamax has no totals line, e.g. `pinnacle` |
+| `NBA_MIN_GAMES` | `10` | Minimum games a team must have played to generate bets |
+| `NBA_HOME_ADVANTAGE` | `3.5` | Home court advantage in points |
+| `NBA_SPREAD_STD` | `15.5` | Std dev of point differential (Normal distribution) |
+| `NBA_TOTAL_STD` | `19.0` | Std dev of total points (Normal distribution) |
 
 ---
 
@@ -138,7 +165,7 @@ All settings can be overridden via `.env`:
 .
 ├── main.py                          # Pipeline entry point
 ├── config.py                        # Configuration and league definitions
-├── constants.py                     # Shared constants (EV thresholds, news fetch config)
+├── constants.py                     # Shared constants (EV thresholds, live window durations)
 ├── requirements.txt
 ├── .env.example
 ├── index.html                       # Generated report (committed by CI for GitHub Pages)
@@ -147,7 +174,8 @@ All settings can be overridden via `.env`:
 │   └── daily_update.yml             # Runs every 6 hours, auto-commits index.html
 │
 ├── extractors/
-│   ├── odds.py                      # The Odds API client (1X2, O/U, tennis discovery)
+│   ├── odds.py                      # The Odds API client (1X2, O/U, spreads, tennis discovery)
+│   ├── nba_data_client.py           # NBA Stats API client (game logs, recent results)
 │   ├── tennis_data_client.py        # Jeff Sackmann ATP/WTA historical data client
 │   ├── footballdata_client.py       # football-data.co.uk CSV client (domestic leagues)
 │   ├── footballdataorg_client.py    # football-data.org API client (UCL)
@@ -158,10 +186,11 @@ All settings can be overridden via `.env`:
 ├── models/
 │   ├── features.py                  # Feature engineering (Dixon-Coles, H2H, fatigue)
 │   ├── evaluator.py                 # Poisson probability + EV calculation (football)
-│   └── tennis_model.py              # Surface-adjusted Elo ratings + EV calculation (tennis)
+│   ├── tennis_model.py              # Surface-adjusted Elo ratings + EV calculation (tennis)
+│   └── nba_model.py                 # Gaussian efficiency model + EV calculation (basketball)
 │
 ├── pipeline/
-│   ├── __init__.py                  # Per-league orchestration (routes football vs tennis)
+│   ├── __init__.py                  # Per-league orchestration (routes football / tennis / basketball)
 │   ├── fetch.py                     # Data fetching and SQLite persistence
 │   ├── evaluate.py                  # Feature building, match evaluation, news enrichment
 │   ├── helpers.py                   # Shared helpers (is_live, build_leg2_map)
@@ -181,8 +210,10 @@ All settings can be overridden via `.env`:
 ├── serve.py                         # Local dev server (suppresses Chrome DevTools 404 noise)
 │
 └── data/
-    ├── team_name_map.json           # Name mapping (Winamax → canonical) for football
-    ├── crest_map.json               # Team crest URLs
+    ├── team_name_map.json           # Name mapping (Winamax → canonical) for football and NBA
+    ├── football_crest_map.json      # Football team crest URLs
+    ├── tennis_crest_map.json        # Tennis player flag URLs (auto-updated each run)
+    ├── nba_crest_map.json           # NBA team logo URLs (NBA CDN)
     ├── bets.db                      # SQLite database
     └── latest_report.json           # Most recent report output
 ```
@@ -221,7 +252,26 @@ K-factors are weighted by tournament level:
 
 Court surface is inferred from the tournament name (keyword matching). New tournaments with unknown names default to Hard court.
 
-### Expected Value (both sports)
+### Basketball — Gaussian Efficiency Model
+
+Team ratings use a rolling window of recent game logs (2× the football rolling window). Scoring is modelled as a Normal distribution over the point differential and total, which is appropriate for basketball's high-scoring, continuous score distribution.
+
+```
+spread_mu = home_expected − away_expected
+total_mu  = home_expected + away_expected
+
+P(home win)    = norm.sf(0, spread_mu, spread_std)
+P(over line)   = norm.sf(line, total_mu, total_std)
+P(home covers) = norm.sf(−spread_home_point, spread_mu, spread_std)
+```
+
+**Adjustments:**
+- **Home court advantage:** +3.5 pts added to the home team's expected score
+- **Back-to-back fatigue:** Teams with ≤1 day of rest since their last game have their expected score reduced by 2.5 pts; flagged with ⏱ on the card
+
+NBA games can run 3h+ (including overtime), so the live detection window is 3.5 hours (vs. 2.5h for football) to ensure in-progress games are never evaluated.
+
+### Expected Value (all sports)
 
 ```
 EV = (model_probability × decimal_odds) − 1
@@ -243,9 +293,11 @@ Each run consumes one API request per active league/tournament:
 | `/v4/sports` (tennis discovery) | Free |
 | `/v4/sports/{sport}/odds/` per football league | 1 request |
 | `/v4/sports/{sport}/odds/` per active tennis tournament | 1 request |
+| `/v4/sports/basketball_nba/odds/` (NBA, h2h + totals + spreads) | 1 request |
 | Jeff Sackmann CSV fetches | Free (GitHub) |
+| NBA Stats API (`nba_api`) | Free |
 
-Typical cost: **7 football + 2–4 tennis = 9–11 requests per run**.
+Typical cost: **7 football + 1 NBA + 2–4 tennis = 10–12 requests per run**.
 
 ---
 
@@ -255,6 +307,8 @@ Typical cost: **7 football + 2–4 tennis = 9–11 requests per run**.
 Interactive dashboard showing:
 - Today's value bets grouped by league/tournament, with odds, true probability, and EV
 - Team form, standings position, rest days (football)
+- Team form and logos (basketball)
+- Player flag icons (tennis)
 - UCL aggregate context for second legs
 - Team news (injury/suspension context) for high-EV football bets near kickoff (requires `NEWS_API_KEY`)
 - Bet history with settled outcomes (won/lost)
@@ -283,4 +337,5 @@ On every run, unsettled future bets that are no longer in the recommended set ar
 | [football-data.org](https://www.football-data.org) | Champions League fixtures and results | Free tier available |
 | [Jeff Sackmann / tennis_atp](https://github.com/JeffSackmann/tennis_atp) | ATP historical match data for Elo | Free (GitHub) |
 | [Jeff Sackmann / tennis_wta](https://github.com/JeffSackmann/tennis_wta) | WTA historical match data for Elo | Free (GitHub) |
+| [NBA Stats API](https://www.nba.com/stats) | NBA team game logs (via `nba_api`) | Free |
 | [NewsAPI](https://newsapi.org) | Team news and injury context (optional) | 100 req/day free tier |

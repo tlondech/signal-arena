@@ -31,6 +31,11 @@ FATIGUE_THRESHOLD_DAYS = 4
 # Goals-conceded multiplier applied to the opponent of a fatigued team (~8% more)
 FATIGUE_FACTOR = 1.08
 
+# NBA back-to-back: teams with exactly 1 day of rest (played the night before)
+# score ~2–3 points fewer; applied as a direct deduction from expected points.
+NBA_BACK_TO_BACK_DAYS = 1
+NBA_BACK_TO_BACK_PENALTY = 2.5
+
 
 # ---------------------------------------------------------------------------
 # Head-to-head blending
@@ -107,6 +112,10 @@ UCL_PROB_RATIO_CAP = 1.4
 
 # Hours window used to classify a match as "currently live" (kicked off but unfinished)
 LIVE_MATCH_WINDOW_HOURS = 2.5
+
+# NBA games last 3h+ with TV timeouts and potential overtime; a 2.5h window is
+# insufficient to guarantee a game has finished before evaluating or settling.
+NBA_LIVE_MATCH_WINDOW_HOURS = 3.5
 
 
 # ---------------------------------------------------------------------------

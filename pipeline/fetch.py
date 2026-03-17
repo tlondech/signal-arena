@@ -51,6 +51,8 @@ def fetch_league_data(
 
     if force_fetch:
         # Phase 1: Fetch odds from API
+        # Basketball needs the spreads market in addition to h2h + totals
+        extra_markets = ["spreads"] if league.sport_type == "basketball" else []
         odds_client = OddsAPIClient(
             api_key=cfg.odds_api_key,
             sport=league.odds_sport,
@@ -59,11 +61,12 @@ def fetch_league_data(
             market=cfg.odds_market,
             odds_format=cfg.odds_format,
             totals_bookmakers=cfg.odds_totals_bookmakers,
+            extra_markets=extra_markets,
         )
         upcoming_events = odds_client.fetch_upcoming_odds()
 
-        # Tennis leagues: no fixture history needed — return early after odds fetch
-        if league.sport_type == "tennis":
+        # Tennis and basketball leagues: no fixture history needed — return early after odds fetch
+        if league.sport_type in ("tennis", "basketball"):
             if dry_run:
                 if not upcoming_events:
                     logger.info(

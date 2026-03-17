@@ -280,6 +280,154 @@ def settle_tennis_supabase_bets(supabase: Client, active_tennis_league_keys: lis
     return _write_settled_bets(supabase, rows_to_update, "tennis via tennis-data.co.uk")
 
 
+def settle_nba_supabase_bets(supabase: Client, nba_league_keys: list[str]) -> int:
+    """
+    Settles unsettled NBA bets in Supabase using nba_api game results.
+
+    Only attempts settlement for games that started more than NBA_LIVE_MATCH_WINDOW_HOURS
+    ago to ensure the game has actually finished (overtime, TV timeouts, etc.).
+    """
+    from datetime import timedelta
+    from constants import NBA_LIVE_MATCH_WINDOW_HOURS
+    from extractors.nba_data_client import NBADataClient
+
+    now = datetime.now(timezone.utc)
+    # Only consider bets for games that have had enough time to finish
+    cutoff_iso = (now - timedelta(hours=NBA_LIVE_MATCH_WINDOW_HOURS)).isoformat()
+
+    try:
+        resp = (
+            supabase.table("bet_history")
+            .select("id,kickoff,home_team,away_team,outcome,league_key")
+            .eq("settled", False)
+            .eq("sport", "basketball")
+            .in_("league_key", nba_league_keys)
+            .lt("kickoff", cutoff_iso)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("Failed to fetch unsettled NBA bets: %s", exc)
+        return 0
+
+    unsettled = cast(list[dict], resp.data or [])
+    if not unsettled:
+        logger.debug("No unsettled past NBA bets found.")
+        return 0
+
+    try:
+        results = NBADataClient().fetch_recent_results(days_back=7)
+    except Exception as exc:
+        logger.warning("NBA results fetch failed — skipping settlement: %s", exc)
+        return 0
+
+    if not results:
+        logger.debug("No recent NBA results found for settlement.")
+        return 0
+
+    # Index results by (home_team_lower, away_team_lower, game_date)
+    results_index: dict[tuple, dict] = {}
+    for r in results:
+        key = (r["home_team"].lower(), r["away_team"].lower(), r["game_date"])
+        results_index[key] = r
+
+    rows_to_update = []
+    settled_at = now.isoformat()
+
+    for bet in unsettled:
+        kickoff_dt = datetime.fromisoformat(bet["kickoff"].replace("Z", "+00:00"))
+        home_lower = bet["home_team"].lower()
+        away_lower = bet["away_team"].lower()
+
+        # Try to match within ±1 day of kickoff
+        matched = None
+        for delta_days in (0, 1, -1):
+            candidate_date = (kickoff_dt + timedelta(days=delta_days)).date()
+            result = results_index.get((home_lower, away_lower, candidate_date))
+            if result:
+                matched = result
+                break
+
+        if matched is None:
+            continue
+
+        home_pts = matched["home_pts"]
+        away_pts = matched["away_pts"]
+        outcome  = bet["outcome"]
+
+        # Moneyline
+        if outcome == "home_win":
+            won = home_pts > away_pts
+        elif outcome == "away_win":
+            won = away_pts > home_pts
+        # Totals (e.g. "over_220_5" or "under_220_5")
+        elif outcome.startswith(("over_", "under_")):
+            won = _settle_totals(outcome, home_pts, away_pts)
+            won = won if won is not None else False
+        # Spreads (e.g. "spread_home_m5_5" or "spread_away_p5_5")
+        elif outcome.startswith("spread_home_") or outcome.startswith("spread_away_"):
+            won = _settle_nba_spread(outcome, home_pts, away_pts)
+        else:
+            logger.debug("[NBA] Unknown outcome key '%s' — skipping.", outcome)
+            continue
+
+        rows_to_update.append({
+            "id":        bet["id"],
+            "home_team": bet["home_team"],
+            "away_team": bet["away_team"],
+            "outcome":   outcome,
+            "kickoff":   bet["kickoff"],
+            "settled":   True,
+            "result":    "won" if won else "lost",
+            "settled_at": settled_at,
+        })
+
+    if not rows_to_update:
+        return 0
+
+    return _write_settled_bets(supabase, rows_to_update, "NBA")
+
+
+def _settle_nba_spread(outcome: str, home_pts: int, away_pts: int) -> bool:
+    """
+    Determines if a spread/handicap bet won.
+
+    Outcome encoding:
+        "spread_home_m5_5"  → home covers -5.5  → home must win by > 5.5
+        "spread_home_p3_5"  → home covers +3.5  → home wins or loses by < 3.5
+        "spread_away_p5_5"  → away covers +5.5  → away wins or loses by < 5.5
+        "spread_away_m3_5"  → away covers -3.5  → away wins by > 3.5
+    """
+    diff = home_pts - away_pts  # positive = home wins
+
+    if outcome.startswith("spread_home_"):
+        line_str = outcome[len("spread_home_"):]
+        threshold = _decode_spread_line(line_str)
+        # Home covers if actual spread > threshold (e.g. threshold=5.5 means home wins by 5.5+)
+        return diff > threshold
+
+    if outcome.startswith("spread_away_"):
+        line_str = outcome[len("spread_away_"):]
+        threshold = _decode_spread_line(line_str)
+        # Away covers if away_pts - home_pts > threshold
+        return (-diff) > threshold
+
+    return False
+
+
+def _decode_spread_line(encoded: str) -> float:
+    """Decodes an encoded spread line string back to a float.
+
+    Examples: "m5_5" → 5.5,  "p3_5" → 3.5,  "m10_0" → 10.0
+    The prefix 'm' means the original line was negative (home favoured).
+    """
+    if encoded.startswith("m"):
+        encoded = encoded[1:]
+    elif encoded.startswith("p"):
+        encoded = encoded[1:]
+    parts = encoded.split("_")
+    return float(f"{parts[0]}.{''.join(parts[1:])}") if len(parts) > 1 else float(parts[0])
+
+
 def prune_stale_supabase_bets(
     supabase: Client,
     all_value_bets: list[dict],
@@ -383,17 +531,40 @@ def push_bets_to_supabase(
 
     # Before upserting, delete any unsettled rows for the same match that may
     # have a stale kickoff (e.g. match was rescheduled since last run).
-    for row in rows:
-        try:
-            supabase.table("bet_history").delete().match({
-                "home_team":  row["home_team"],
-                "away_team":  row["away_team"],
-                "league_key": row["league_key"],
-                "outcome":    row["outcome"],
-                "settled":    False,
-            }).execute()
-        except Exception as exc:
-            logger.warning("Failed to delete stale bet before upsert: %s", exc)
+    # Uses 1 SELECT + at most 1 DELETE instead of one DELETE per row.
+    # Also used below to distinguish created vs updated rows in the log.
+    existing_keys: set[tuple] = set()
+    try:
+        league_keys = list({r["league_key"] for r in rows})
+        existing = (
+            supabase.table("bet_history")
+            .select("id,home_team,away_team,league_key,outcome,kickoff")
+            .in_("league_key", league_keys)
+            .eq("settled", False)
+            .execute()
+        )
+        current_kickoffs: dict[tuple, str] = {
+            (r["home_team"], r["away_team"], r["league_key"], r["outcome"]): r["kickoff"]
+            for r in rows
+        }
+        existing_rows: list[dict] = cast(list[dict], existing.data or [])
+        stale_ids = [
+            row["id"]
+            for row in existing_rows
+            if (row["home_team"], row["away_team"], row["league_key"], row["outcome"]) in current_kickoffs
+            and row["kickoff"] != current_kickoffs[(row["home_team"], row["away_team"], row["league_key"], row["outcome"])]
+        ]
+        if stale_ids:
+            supabase.table("bet_history").delete().in_("id", stale_ids).execute()
+            logger.info("Deleted %d stale bet row(s) before upsert.", len(stale_ids))
+        stale_id_set = set(stale_ids)
+        existing_keys = {
+            (row["home_team"], row["away_team"], row["league_key"], row["outcome"], row["kickoff"])
+            for row in existing_rows
+            if row["id"] not in stale_id_set
+        }
+    except Exception as exc:
+        logger.warning("Failed to clean up stale bets before upsert: %s", exc)
 
     try:
         response = (
@@ -402,7 +573,12 @@ def push_bets_to_supabase(
             .execute()
         )
         count = len(response.data) if response.data else len(rows)
-        logger.info("Pushed %d bet row(s) to Supabase.", count)
+        n_updated = sum(
+            1 for r in rows
+            if (r["home_team"], r["away_team"], r["league_key"], r["outcome"], r["kickoff"]) in existing_keys
+        )
+        n_created = count - n_updated
+        logger.info("Pushed %d bet row(s) to Supabase (%d new, %d updated).", count, n_created, n_updated)
         return count
     except Exception as exc:
         logger.error("Failed to push bets to Supabase: %s", exc)

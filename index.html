@@ -328,6 +328,49 @@
         </div>
       </div>
 
+      <!-- Basketball-specific sections -->
+      <div id="legend-basketball" class="hidden">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wide text-gray-400/90 dark:text-gray-400/90 mb-3">Bet Types</p>
+          <div class="space-y-2">
+            <div class="flex justify-between">
+              <span class="text-gray-700 dark:text-gray-300">Home Win / Away Win</span>
+              <span class="text-gray-400 dark:text-gray-500">Moneyline</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-700 dark:text-gray-300">Over X / Under X</span>
+              <span class="text-gray-400 dark:text-gray-500">Total points — line varies per event</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-700 dark:text-gray-300">Team −X.X / Team +X.X</span>
+              <span class="text-gray-400 dark:text-gray-500">Spread — margin of victory</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <p class="text-xs font-semibold uppercase tracking-wide text-gray-400/90 dark:text-gray-400/90 mb-3">Card Indicators</p>
+          <div class="space-y-3">
+            <div class="grid grid-cols-[65px_1fr] gap-3 items-start">
+              <span class="flex gap-1 items-center mt-0.5">
+                <span class="bg-green-500 inline-block w-2.5 h-2.5 rounded-full" title="Win"></span>
+                <span class="bg-red-500 inline-block w-2.5 h-2.5 rounded-full" title="Loss"></span>
+              </span>
+              <span>Recent form — last 5 games (green&nbsp;W, red&nbsp;L), oldest on the left. No draws in basketball.</span>
+            </div>
+            <div class="grid grid-cols-[65px_1fr] gap-3 items-start">
+              <span class="text-amber-500 font-medium mt-0.5">⏱ 1d</span>
+              <span>Back-to-back — team played the night before. The model reduces their expected scoring by 2.5 pts.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <p class="text-xs font-semibold uppercase tracking-wide text-gray-400/90 dark:text-gray-400/90 mb-3">Model</p>
+          <p>Gaussian efficiency model using rolling team game logs from the current NBA season. Expected scores are derived from each team's home/away attack and defensive ratings, adjusted for home-court advantage (+3.5 pts) and back-to-back fatigue (−2.5 pts). A Normal distribution over the point differential and total drives all three market probabilities.</p>
+        </div>
+      </div>
+
       <div>
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-400/90 dark:text-gray-400/90 mb-3">EV Colour Coding</p>
         <div class="space-y-2">
@@ -666,11 +709,13 @@ function renderCard(m, opts = {}) {
     ? `<img src="${esc(url)}" alt="${esc(name)}" class="w-7 h-7 object-contain flex-shrink-0" onerror="this.style.display='none'">`
     : `<span class="w-7 h-7 flex-shrink-0"></span>`;
   const rankStr = n => n ? `<span class="text-xs font-medium text-gray-400 dark:text-gray-500">${ordinal(n)}</span>` : "";
-  const restWarn = days => (days != null && days < 4)
-    ? `<span class="whitespace-nowrap shrink-0 inline-flex items-center gap-0.5 text-xs font-medium text-amber-500" title="Short rest: only ${days} day${days===1?'':'s'} since last match">⏱ ${days}d</span>` : "";
 
   const isTennis     = m.sport === "tennis";
   const isBasketball = m.sport === "basketball";
+
+  const restThreshold = isBasketball ? 2 : 4;
+  const restWarn = days => (days != null && days < restThreshold)
+    ? `<span class="whitespace-nowrap shrink-0 inline-flex items-center gap-0.5 text-xs font-medium text-amber-500" title="${isBasketball ? "Back-to-back" : "Short rest"}: only ${days} day${days===1?'':'s'} since last match">⏱ ${days}d</span>` : "";
 
   // ── League / tournament badge text ────────────────────────────
   let badgeText;
@@ -840,15 +885,17 @@ const BET_TYPES = {
     {key:"home_win", label:"Home Win"},
     {key:"draw",     label:"Draw"},
     {key:"away_win", label:"Away Win"},
-    {key:"over_2_5", label:"Over 2.5"},
-    {key:"under_2_5",label:"Under 2.5"},
+    {key:"over_",    label:"Over"},
+    {key:"under_",   label:"Under"},
   ],
   basketball: [
-    {key:"all",        label:"All Types"},
-    {key:"spread_home",label:"Spread (Home)"},
-    {key:"spread_away",label:"Spread (Away)"},
-    {key:"moneyline_home", label:"Moneyline Home"},
-    {key:"moneyline_away", label:"Moneyline Away"},
+    {key:"all",          label:"All Types"},
+    {key:"home_win",     label:"Home Win"},
+    {key:"away_win",     label:"Away Win"},
+    {key:"over_",        label:"Over"},
+    {key:"under_",       label:"Under"},
+    {key:"spread_home_", label:"Spread (Home)"},
+    {key:"spread_away_", label:"Spread (Away)"},
   ],
 };
 function renderBetTypePills() {
@@ -884,8 +931,12 @@ function renderBetsPanel() {
   if (activeLeague !== "all")
     filtered = filtered.filter(m => m.league_key === activeLeague);
 
-  if (activeBetType !== "all")
-    filtered = filtered.filter(m => m.bets.some(b => b.outcome === activeBetType));
+  if (activeBetType !== "all") {
+    const isPrefix = activeBetType.endsWith("_");
+    filtered = filtered.filter(m => m.bets.some(b =>
+      isPrefix ? b.outcome.startsWith(activeBetType) : b.outcome === activeBetType
+    ));
+  }
 
   if (teamSearch) {
     const q = teamSearch.toLowerCase();
@@ -1165,7 +1216,7 @@ function updateFilterUI() {
     active.push({ key: "league", label: LEAGUE_SHORT_NAMES[activeLeague] || (row ? row.league_name : activeLeague) });
   }
   if (activeBetType !== "all") {
-    const bt = BET_TYPES.find(t => t.key === activeBetType);
+    const bt = (BET_TYPES[activeSport] || []).find(t => t.key === activeBetType);
     active.push({ key: "bettype", label: bt ? bt.label : activeBetType });
   }
   if (teamSearch) {
@@ -1316,9 +1367,9 @@ async function init() {
   // Legend modal
   const legendModal = document.getElementById("legend-modal");
   document.getElementById("open-legend-btn").addEventListener("click", () => {
-    const isTennis = activeSport === "tennis";
-    document.getElementById("legend-football").classList.toggle("hidden", isTennis);
-    document.getElementById("legend-tennis").classList.toggle("hidden", !isTennis);
+    document.getElementById("legend-football").classList.toggle("hidden", activeSport !== "football");
+    document.getElementById("legend-tennis").classList.toggle("hidden", activeSport !== "tennis");
+    document.getElementById("legend-basketball").classList.toggle("hidden", activeSport !== "basketball");
     legendModal.classList.remove("hidden");
   });
   document.getElementById("close-legend-btn").addEventListener("click", () => legendModal.classList.add("hidden"));

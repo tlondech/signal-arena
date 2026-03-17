@@ -43,6 +43,37 @@ def _pick_best_totals_line(outcomes: list[dict]) -> tuple[float | None, float | 
     return best_line, best_over, best_under
 
 
+def _parse_spread_outcomes(
+    outcomes: list[dict],
+    home_team: str,
+    away_team: str,
+) -> dict | None:
+    """
+    Parses a spreads market outcomes list into {home_point, home_odds, away_odds}.
+
+    Returns None if both home and away entries are not found.
+    The home_point is the point handicap for the home team
+    (e.g. -5.5 means home is favoured by 5.5 points).
+    """
+    home_point = None
+    home_odds  = None
+    away_odds  = None
+    for outcome in outcomes:
+        name  = outcome.get("name", "")
+        price = outcome.get("price")
+        point = outcome.get("point")
+        if price is None or point is None:
+            continue
+        if name == home_team:
+            home_point = point
+            home_odds  = price
+        elif name == away_team:
+            away_odds = price
+    if home_point is None or home_odds is None or away_odds is None:
+        return None
+    return {"home_point": home_point, "home_odds": home_odds, "away_odds": away_odds}
+
+
 class OddsAPIClient:
     def __init__(
         self,
@@ -53,6 +84,7 @@ class OddsAPIClient:
         market: str,
         odds_format: str = "decimal",
         totals_bookmakers: str = "",
+        extra_markets: list[str] | None = None,
     ):
         self.api_key = api_key
         self.sport = sport
@@ -61,6 +93,7 @@ class OddsAPIClient:
         self.market = market
         self.odds_format = odds_format
         self.totals_bookmakers = totals_bookmakers
+        self.extra_markets: list[str] = extra_markets or []
         self._quota_remaining: int | None = None
 
     @property
@@ -78,10 +111,11 @@ class OddsAPIClient:
         for b in self.totals_bookmakers.split(","):
             if b.strip():
                 bk_set.add(b.strip())
+        base_markets = ["h2h", "totals"] + self.extra_markets
         params = {
             "apiKey": self.api_key,
             "regions": self.region,
-            "markets": "h2h,totals",
+            "markets": ",".join(base_markets),
             "bookmakers": ",".join(sorted(bk_set)),
             "oddsFormat": self.odds_format,
             "dateFormat": "iso",
@@ -191,18 +225,35 @@ class OddsAPIClient:
                 under_odds = u_price
                 break
 
+        # Parse spreads market (basketball only; None for football/tennis)
+        spread_home_point = None
+        spread_home_odds = None
+        spread_away_odds = None
+        spreads_market = markets.get("spreads")
+        if spreads_market:
+            spread_result = _parse_spread_outcomes(
+                spreads_market.get("outcomes", []), home_team, away_team
+            )
+            if spread_result:
+                spread_home_point = spread_result["home_point"]
+                spread_home_odds  = spread_result["home_odds"]
+                spread_away_odds  = spread_result["away_odds"]
+
         return {
-            "match_id": match_id,
-            "home_team": home_team,
-            "away_team": away_team,
-            "commence_time": commence_time,
-            "home_odds": home_odds,
-            "draw_odds": draw_odds,
-            "away_odds": away_odds,
-            "totals_line": totals_line,
-            "over_odds": over_odds,
-            "under_odds": under_odds,
-            "bookmaker": primary_bk["key"],
+            "match_id":          match_id,
+            "home_team":         home_team,
+            "away_team":         away_team,
+            "commence_time":     commence_time,
+            "home_odds":         home_odds,
+            "draw_odds":         draw_odds,
+            "away_odds":         away_odds,
+            "totals_line":       totals_line,
+            "over_odds":         over_odds,
+            "under_odds":        under_odds,
+            "spread_home_point": spread_home_point,
+            "spread_home_odds":  spread_home_odds,
+            "spread_away_odds":  spread_away_odds,
+            "bookmaker":         primary_bk["key"],
         }
 
 

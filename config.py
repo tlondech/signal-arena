@@ -11,6 +11,22 @@ def _current_season() -> int:
     return now.year if now.month >= 7 else now.year - 1
 
 
+def _current_nba_season() -> str:
+    """Returns the current NBA season string, e.g. '2024-25'.
+    NBA season starts in October; July–September is off-season.
+    """
+    now = datetime.now()
+    # Season year is the year the season starts (October)
+    if now.month >= 10:
+        start_year = now.year
+    elif now.month <= 6:
+        start_year = now.year - 1
+    else:
+        # July–September: off-season; return the upcoming season
+        start_year = now.year
+    return f"{start_year}-{str(start_year + 1)[2:]}"
+
+
 # UCL 2nd-leg aggregate adjustment multipliers
 AGG_ATTACK_BOOST  = 0.15   # lambda boost per goal deficit for trailing team
 AGG_DEFEND_FACTOR = 0.05   # lambda penalty per goal lead for leading team
@@ -19,6 +35,9 @@ AGG_MIN_MULT      = 0.85   # floor multiplier for the leading team's attack lamb
 UCL_KNOCKOUT_STAGES: frozenset = frozenset({
     "ROUND_OF_16", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS",
 })
+
+# Imported here to avoid circular imports — used as default for NBA LeagueConfig
+from constants import NBA_LIVE_MATCH_WINDOW_HOURS as _NBA_WINDOW  # noqa: E402
 
 
 @dataclass
@@ -30,7 +49,8 @@ class LeagueConfig:
     season_override: int | None = None # set only for competitions with non-standard seasons
     fdo_code: str | None = None        # football-data.org competition code (e.g. "CL")
     fdo_enrich_code: str | None = None # football-data.org code for matchweek/stage enrichment
-    sport_type: str = "football"       # "football" | "tennis"
+    sport_type: str = "football"       # "football" | "tennis" | "basketball"
+    live_window_hours: float = 2.5     # hours after kickoff during which the match is considered live
 
 
 LEAGUES: list[LeagueConfig] = [
@@ -41,6 +61,10 @@ LEAGUES: list[LeagueConfig] = [
     LeagueConfig("seriea",     "Serie A",           "soccer_italy_serie_a",       "I1",  fdo_enrich_code="SA"),
     LeagueConfig("ucl",        "Champions League", "soccer_uefa_champs_league",   None, fdo_code="CL"),
     LeagueConfig("worldcup",   "World Cup",         "soccer_fifa_world_cup",      None, season_override=2026),
+    LeagueConfig(
+        "nba", "NBA", "basketball_nba", fd_code=None,
+        sport_type="basketball", live_window_hours=_NBA_WINDOW,
+    ),
 ]
 
 _LEAGUES_BY_KEY: dict[str, LeagueConfig] = {lg.key: lg for lg in LEAGUES}
@@ -67,6 +91,13 @@ class Config:
     atp_elo: dict = field(default_factory=dict)
     wta_elo: dict = field(default_factory=dict)
 
+    # NBA team ratings — computed once per run in main.py
+    nba_ratings: dict = field(default_factory=dict)
+    nba_min_games: int = 10          # minimum games required for a team to generate bets
+    nba_home_advantage: float = 3.5  # home court advantage in points
+    nba_spread_std: float = 15.5     # std dev of point differential (Normal dist)
+    nba_total_std: float = 19.0      # std dev of total points (Normal dist)
+
     # Model settings
     ev_threshold: float = 0.05
     poisson_max_goals: int = 8
@@ -80,6 +111,7 @@ class Config:
     team_map_path: str = "data/team_name_map.json"
     football_crest_map_path: str = "data/football_crest_map.json"
     tennis_crest_map_path: str = "data/tennis_crest_map.json"
+    nba_crest_map_path: str = "data/nba_crest_map.json"
     report_json_path: str = "data/latest_report.json"
     report_html_path: str = "index.html"
     log_dir: str = "logs"
@@ -112,7 +144,8 @@ def load_config() -> Config:
         enabled = list(LEAGUES)
 
     fdo_api_key = os.getenv("FOOTBALL_DATA_ORG_API_KEY", "")
-    if any(lg.fdo_code or lg.fdo_enrich_code for lg in enabled) and not fdo_api_key:
+    football_enabled = [lg for lg in enabled if lg.sport_type == "football"]
+    if any(lg.fdo_code or lg.fdo_enrich_code for lg in football_enabled) and not fdo_api_key:
         raise ValueError(
             "FOOTBALL_DATA_ORG_API_KEY is required for Champions League and matchweek enrichment.\n"
             "Register free at https://www.football-data.org/ and add the key to .env"
@@ -129,4 +162,8 @@ def load_config() -> Config:
         odds_totals_bookmakers=os.getenv("ODDS_TOTALS_BOOKMAKERS", ""),
         tennis_max_prob_ratio=float(os.getenv("TENNIS_MAX_PROB_RATIO", "1.5")),
         tennis_min_matches=int(os.getenv("TENNIS_MIN_MATCHES", "10")),
+        nba_min_games=int(os.getenv("NBA_MIN_GAMES", "10")),
+        nba_home_advantage=float(os.getenv("NBA_HOME_ADVANTAGE", "3.5")),
+        nba_spread_std=float(os.getenv("NBA_SPREAD_STD", "15.5")),
+        nba_total_std=float(os.getenv("NBA_TOTAL_STD", "19.0")),
     )
