@@ -10,7 +10,7 @@ export async function getSession() {
 export async function signInWithMagicLink(email) {
   const { error } = await sb.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.origin + window.location.pathname },
+    options: {},
   });
   if (error) throw error;
 }
