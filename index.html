@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Daily Value Bets</title>
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -51,11 +51,62 @@
       opacity:0; pointer-events:none; transition:opacity 0.25s ease;
     }
     #filter-backdrop.open { opacity:1; pointer-events:auto; }
+
+    /* ── Burger (left) drawer — mobile only ──────────────────── */
+    #burger-drawer {
+      position:fixed; top:0; left:0; bottom:0; width:min(320px,85vw);
+      background:white; z-index:50;
+      transform:translateX(-100%); transition:transform 0.25s ease;
+      display:flex; flex-direction:column;
+      box-shadow:4px 0 24px rgba(0,0,0,0.12);
+    }
+    @media (prefers-color-scheme: dark) {
+      #burger-drawer { background:#111827; }
+    }
+    #burger-drawer.open { transform:translateX(0); }
+
+    /* ── Bottom nav ───────────────────────────────────────────── */
+    #bottom-nav { transition:transform 0.25s ease; }
+    #bottom-nav.hide-nav { transform:translateY(100%); }
   </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
 
-<!-- ── Filter drawer backdrop ────────────────────────────────── -->
+<!-- ── Burger drawer (slides from LEFT, mobile only) ─────────── -->
+<aside id="burger-drawer" role="dialog" aria-label="Menu" aria-modal="true">
+  <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+    <h2 class="text-sm font-semibold">Filters</h2>
+    <button id="burger-drawer-close" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 text-lg leading-none">&times;</button>
+  </div>
+  <div class="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Sport</p>
+      <div id="sport-pills-mobile"></div>
+    </div>
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">League</p>
+      <div id="league-pills-mobile" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+    </div>
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Bet Type</p>
+      <div id="bet-type-pills-mobile" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1"></div>
+    </div>
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Date</p>
+      <div id="date-bets-section-mobile"><div id="date-bets-pills-mobile" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div></div>
+      <div id="date-hist-section-mobile" class="hidden"><div id="date-hist-pills-mobile" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1"></div></div>
+    </div>
+  </div>
+  <!-- Sticky Reset footer -->
+  <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+    <button id="burger-reset-btn" disabled
+      class="w-full py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:border-gray-700 disabled:text-gray-400 border-blue-500 text-blue-500 hover:enabled:border-red-500 hover:enabled:text-red-400">
+      Reset filters
+    </button>
+  </div>
+</aside>
+
+<!-- ── Filter drawer backdrop (shared) ───────────────────────── -->
 <div id="filter-backdrop"></div>
 
 <!-- ── Filter drawer ─────────────────────────────────────────── -->
@@ -96,16 +147,29 @@
 <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
   <div class="max-w-6xl mx-auto px-4">
 
-    <!-- Title row (always visible) -->
-    <div class="flex items-center justify-between py-3">
+    <!-- Mobile header row: burger | search | ? -->
+    <div class="flex md:hidden items-center gap-2 py-3">
+      <button id="burger-btn"
+        class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 flex-shrink-0"
+        aria-label="Open menu" aria-expanded="false" aria-controls="burger-drawer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+      <input id="team-search-mobile" type="text" placeholder="Search team…"
+        class="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      <button id="open-legend-btn-mobile" title="How to read this"
+        class="flex-shrink-0 w-7 h-7 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors flex items-center justify-center text-xs font-bold">
+        ?
+      </button>
+    </div>
 
-      <!-- Left: title + last updated -->
+    <!-- Desktop header row (hidden on mobile) -->
+    <div class="hidden md:flex items-center justify-between py-3">
       <div class="flex flex-col md:flex-row md:items-baseline md:gap-3">
         <h1 class="text-xl font-bold tracking-tight">Daily Value Bets</h1>
         <span id="last-updated" class="hidden md:inline text-xs text-gray-500 dark:text-gray-400"></span>
       </div>
-
-      <!-- Right: desktop nav + help -->
       <div class="flex items-center gap-4">
         <nav class="hidden md:flex items-center gap-1">
           <button class="main-tab-btn px-3 py-1.5 text-sm font-medium rounded-lg border-b-2 transition-colors" data-main="bets">Value Bets</button>
@@ -116,45 +180,34 @@
           ?
         </button>
       </div>
-
-    </div>
-
-    <!-- Mobile-only nav tabs (sit inside header, above its border-b) -->
-    <div class="flex md:hidden w-full gap-1 pb-2">
-      <button class="main-tab-btn px-4 py-2 text-sm font-medium border-b-2 transition-colors" data-main="bets">Value Bets</button>
-      <button class="main-tab-btn px-4 py-2 text-sm font-medium border-b-2 transition-colors" data-main="history">History</button>
     </div>
 
   </div>
 </header>
 
-<!-- ── Action bar ───────────────────────────────────────────── -->
-<div class="bg-white dark:bg-[#0f172a] border-b border-gray-200 dark:border-gray-800 py-3">
+<!-- ── Action bar (desktop only) ────────────────────────────── -->
+<div class="hidden md:block bg-white dark:bg-[#0f172a] border-b border-gray-200 dark:border-gray-800 py-3">
   <div class="max-w-6xl mx-auto px-4 flex flex-col gap-3">
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 w-full">
-      <!-- Left: Master Sport Toggle -->
-      <div id="sport-pills" class="w-full md:w-auto shrink-0"></div>
-      <!-- Right: Search + Filter controls -->
-      <div class="grid grid-cols-3 gap-2 w-full md:flex md:w-auto md:items-center md:gap-2">
+    <div class="flex flex-row items-center justify-between gap-3 w-full">
+      <div id="sport-pills" class="w-auto shrink-0"></div>
+      <div class="flex items-center gap-2">
         <input id="team-search" type="text" placeholder="Search team…"
-          class="col-span-2 min-w-0 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 md:w-56" />
-        <div class="col-span-1 flex gap-1.5 w-full md:contents">
-          <button id="filters-toggle"
-            class="relative flex-1 md:flex-none justify-center inline-flex items-center gap-1.5 px-0 md:px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M7 8h10M11 12h2M9 16h6"/>
-            </svg>
-            <span class="hidden sm:inline">Filters</span>
-            <span id="filter-badge" class="hidden absolute -top-1.5 -right-1.5 flex items-center justify-center bg-blue-600 text-white text-[10px] font-bold h-4 w-4 rounded-full leading-none"></span>
-          </button>
-          <button id="clear-filters-btn" disabled title="Clear all filters"
-            class="flex-1 md:flex-none justify-center inline-flex items-center gap-1.5 px-0 md:px-3 py-1.5 rounded-lg border text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:border-gray-700 disabled:text-gray-400 border-blue-500 text-blue-500 hover:enabled:border-red-500 hover:enabled:text-red-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-            <span class="hidden sm:inline">Clear</span>
-          </button>
-        </div>
+          class="min-w-0 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 w-56" />
+        <button id="filters-toggle"
+          class="relative inline-flex flex-none justify-center items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M7 8h10M11 12h2M9 16h6"/>
+          </svg>
+          <span>Filters</span>
+          <span id="filter-badge" class="hidden absolute -top-1.5 -right-1.5 flex items-center justify-center bg-blue-600 text-white text-[10px] font-bold h-4 w-4 rounded-full leading-none"></span>
+        </button>
+        <button id="clear-filters-btn" disabled title="Clear all filters"
+          class="inline-flex flex-none justify-center items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:border-gray-700 disabled:text-gray-400 border-blue-500 text-blue-500 hover:enabled:border-red-500 hover:enabled:text-red-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          <span>Clear</span>
+        </button>
       </div>
     </div>
     <div id="active-filter-chips" class="flex flex-wrap items-center gap-2 empty:hidden"></div>
@@ -163,13 +216,14 @@
 
 </div><!-- end sticky shell -->
 
-<!-- ── Last updated (mobile only, scrolls with page) ────────── -->
+<!-- ── Last updated + active chips (mobile only, scrolls with page) -->
 <div class="md:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-1.5">
   <span id="last-updated-mobile" class="text-xs text-gray-500 dark:text-gray-400"></span>
 </div>
+<div id="active-filter-chips-mobile" class="md:hidden empty:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-2 flex flex-wrap items-center gap-2"></div>
 
 <!-- ── Main ─────────────────────────────────────────────────── -->
-<main class="max-w-6xl mx-auto px-4 py-5">
+<main class="max-w-6xl mx-auto px-4 py-5 pb-20 md:pb-5">
 
   <!-- Error banner -->
   <div id="error-banner" class="hidden mb-4 px-4 py-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg text-red-700 dark:text-red-300 text-sm"></div>
@@ -249,6 +303,47 @@
   </div>
 
 </main>
+
+<!-- ── Pull-to-refresh indicator (mobile only) ──────────────── -->
+<div id="ptr-indicator"
+  class="md:hidden fixed top-0 left-0 right-0 z-30 flex justify-center items-center py-3 pointer-events-none"
+  style="transform:translateY(-100%); opacity:0;">
+  <div class="bg-white dark:bg-gray-900 rounded-full shadow-md p-2.5 border border-gray-200 dark:border-gray-700">
+    <span class="spinner block"></span>
+  </div>
+</div>
+
+<!-- ── Bottom nav bar (mobile only) ─────────────────────────── -->
+<nav id="bottom-nav"
+  class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex items-center justify-around px-4 py-2"
+  style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom))">
+
+  <!-- Sport picker popover (fixed, appears above the sport button) -->
+  <div id="sport-popover"
+    class="hidden fixed bottom-16 right-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-1.5 flex flex-col gap-0.5 z-50 min-w-[9rem]">
+    <button class="sport-pop-btn flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors" data-sport="football">⚽️ Football</button>
+    <button class="sport-pop-btn flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors" data-sport="basketball">🏀 Basketball</button>
+    <button class="sport-pop-btn flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors" data-sport="tennis">🎾 Tennis</button>
+  </div>
+
+  <button class="bottom-nav-btn flex items-center justify-center p-3 rounded-xl transition-colors text-gray-400 dark:text-gray-500"
+    data-main="bets" aria-label="Value Bets">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+    </svg>
+  </button>
+  <button class="bottom-nav-btn flex items-center justify-center p-3 rounded-xl transition-colors text-gray-400 dark:text-gray-500"
+    data-main="history" aria-label="History">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3"/>
+    </svg>
+  </button>
+  <button id="sport-nav-btn"
+    class="flex items-center justify-center p-3 rounded-xl transition-colors text-gray-400 dark:text-gray-500"
+    aria-label="Select sport" aria-haspopup="true" aria-expanded="false">
+    <span id="sport-nav-icon" class="text-xl leading-none">⚽️</span>
+  </button>
+</nav>
 
 <!-- ── Help / Legend modal ───────────────────────────────────── -->
 <div id="legend-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 hidden">
@@ -463,6 +558,110 @@ let historyTotal    = 0;
 let historyLoaded   = [];
 let historyFetching = false;
 let historyObserver = null;
+let burgerDrawerOpen = false;
+
+// ── Burger drawer (mobile) ─────────────────────────────────────
+function openBurgerDrawer() {
+  document.getElementById("burger-drawer").classList.add("open");
+  document.getElementById("filter-backdrop").classList.add("open");
+  document.getElementById("burger-btn").setAttribute("aria-expanded", "true");
+  burgerDrawerOpen = true;
+  document.body.style.overflow = "hidden";
+  renderBurgerDrawerPills();
+}
+function closeBurgerDrawer() {
+  document.getElementById("burger-drawer").classList.remove("open");
+  document.getElementById("filter-backdrop").classList.remove("open");
+  document.getElementById("burger-btn").setAttribute("aria-expanded", "false");
+  burgerDrawerOpen = false;
+  document.body.style.overflow = "";
+}
+
+function renderBurgerDrawerPills() {
+  // Sport pills
+  const sportSrc  = document.getElementById("sport-pills");
+  const sportDest = document.getElementById("sport-pills-mobile");
+  if (sportSrc && sportDest) {
+    sportDest.innerHTML = sportSrc.innerHTML;
+    sportDest.querySelectorAll("[data-sport]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        activeSport   = btn.dataset.sport;
+        activeLeague  = "all";
+        activeBetType = "all";
+        teamSearch    = "";
+        document.getElementById("team-search").value = "";
+        document.getElementById("team-search-mobile").value = "";
+        updateFilterUI();
+        renderBetsPanel();
+        resetHistoryPagination();
+        closeBurgerDrawer();
+      });
+    });
+  }
+  // League pills
+  const leagueSrc  = document.getElementById("league-pills");
+  const leagueDest = document.getElementById("league-pills-mobile");
+  if (leagueSrc && leagueDest) {
+    leagueDest.innerHTML = leagueSrc.innerHTML;
+    leagueDest.querySelectorAll("[data-league]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        activeLeague = btn.dataset.league;
+        updateFilterBadge();
+        renderBetsPanel();
+        resetHistoryPagination();
+        renderBurgerDrawerPills();
+      });
+    });
+  }
+  // Bet-type pills
+  const btSrc  = document.getElementById("bet-type-pills");
+  const btDest = document.getElementById("bet-type-pills-mobile");
+  if (btSrc && btDest) {
+    btDest.innerHTML = btSrc.innerHTML;
+    btDest.querySelectorAll("[data-type]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        activeBetType = btn.dataset.type;
+        updateFilterBadge();
+        renderBetsPanel();
+        resetHistoryPagination();
+        renderBurgerDrawerPills();
+      });
+    });
+  }
+  // Date pills (bets)
+  const dbSrc  = document.getElementById("date-bets-pills");
+  const dbDest = document.getElementById("date-bets-pills-mobile");
+  if (dbSrc && dbDest) {
+    dbDest.innerHTML = dbSrc.innerHTML;
+    dbDest.querySelectorAll("[data-range]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        activeDateBets = btn.dataset.range;
+        updateFilterBadge();
+        renderBetsPanel();
+        renderBurgerDrawerPills();
+      });
+    });
+  }
+  // Date pills (history)
+  const dhSrc  = document.getElementById("date-hist-pills");
+  const dhDest = document.getElementById("date-hist-pills-mobile");
+  if (dhSrc && dhDest) {
+    dhDest.innerHTML = dhSrc.innerHTML;
+    dhDest.querySelectorAll("[data-range]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        activeDateHist = btn.dataset.range;
+        updateFilterBadge();
+        resetHistoryPagination();
+        renderBurgerDrawerPills();
+      });
+    });
+  }
+  // Show correct date section based on current tab
+  const dbSection = document.getElementById("date-bets-section-mobile");
+  const dhSection = document.getElementById("date-hist-section-mobile");
+  if (dbSection) dbSection.classList.toggle("hidden", mainTab !== "bets");
+  if (dhSection) dhSection.classList.toggle("hidden", mainTab !== "history");
+}
 
 // ── Helpers ───────────────────────────────────────────────────
 function esc(s) {
@@ -586,6 +785,21 @@ function renderSportPills() {
       renderBetsPanel();
       resetHistoryPagination();
     });
+  });
+  updateSportNavBtn();
+}
+
+const SPORT_EMOJI = { football: "⚽️", basketball: "🏀", tennis: "🎾" };
+function updateSportNavBtn() {
+  const icon = document.getElementById("sport-nav-icon");
+  if (icon) icon.textContent = SPORT_EMOJI[activeSport] || "⚽️";
+  // Update popover active styling
+  document.querySelectorAll(".sport-pop-btn").forEach(btn => {
+    const isActive = btn.dataset.sport === activeSport;
+    btn.className = "sport-pop-btn flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors "
+      + (isActive
+          ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium"
+          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800");
   });
 }
 
@@ -1241,14 +1455,22 @@ function updateFilterUI() {
   if (count > 0) { badge.textContent = count; badge.classList.remove("hidden"); }
   else           { badge.classList.add("hidden"); }
 
-  // ── Clear button ──────────────────────────────────────────────
+  // ── Clear / Reset buttons ─────────────────────────────────────
   const clearBtn = document.getElementById("clear-filters-btn");
   clearBtn.disabled = count === 0;
+  const resetBtn = document.getElementById("burger-reset-btn");
+  if (resetBtn) resetBtn.disabled = count === 0;
 
   // ── Chips ─────────────────────────────────────────────────────
-  document.getElementById("active-filter-chips").innerHTML = active.map(f =>
-    `<span class="px-2 py-0.5 rounded-full border border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-medium">${esc(f.label)}</span>`
+  const chipsHtml = active.map(f =>
+    `<span class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full border border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-medium">
+      ${esc(f.label)}
+      <button data-filter-key="${f.key}" class="chip-remove ml-0.5 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 w-4 h-4 flex items-center justify-center leading-none" aria-label="Remove filter">&times;</button>
+    </span>`
   ).join("");
+  document.getElementById("active-filter-chips").innerHTML = chipsHtml;
+  const mobileChips = document.getElementById("active-filter-chips-mobile");
+  if (mobileChips) mobileChips.innerHTML = chipsHtml;
 }
 // Keep old name as alias so existing callers don't break
 const updateFilterBadge = updateFilterUI;
@@ -1275,6 +1497,16 @@ function setMainTab(tab) {
                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400",
     ].join(" ");
   });
+  // Bottom nav active state (mobile)
+  document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
+    const active = btn.dataset.main === tab;
+    btn.classList.toggle("text-indigo-600", active);
+    btn.classList.toggle("dark:text-indigo-400", active);
+    btn.classList.toggle("text-gray-400", !active);
+    btn.classList.toggle("dark:text-gray-500", !active);
+  });
+  // Sync burger drawer date section if drawer exists
+  if (document.getElementById("burger-drawer")) renderBurgerDrawerPills();
   updateFilterBadge();
   if (tab==="history") renderHistory();
 }
@@ -1370,12 +1602,14 @@ async function init() {
 
   // Legend modal
   const legendModal = document.getElementById("legend-modal");
-  document.getElementById("open-legend-btn").addEventListener("click", () => {
+  function openLegend() {
     document.getElementById("legend-football").classList.toggle("hidden", activeSport !== "football");
     document.getElementById("legend-tennis").classList.toggle("hidden", activeSport !== "tennis");
     document.getElementById("legend-basketball").classList.toggle("hidden", activeSport !== "basketball");
     legendModal.classList.remove("hidden");
-  });
+  }
+  document.getElementById("open-legend-btn").addEventListener("click", openLegend);
+  document.getElementById("open-legend-btn-mobile").addEventListener("click", openLegend);
   document.getElementById("close-legend-btn").addEventListener("click", () => legendModal.classList.add("hidden"));
   legendModal.addEventListener("click", e => { if (e.target === legendModal) legendModal.classList.add("hidden"); });
 
@@ -1387,17 +1621,74 @@ async function init() {
     activeDateBets = "all";
     activeDateHist = "all";
     document.getElementById("team-search").value = "";
+    document.getElementById("team-search-mobile").value = "";
     updateFilterUI();
     renderBetsPanel();
     resetHistoryPagination();
   });
 
-  // Drawer open/close
+  // Right filter drawer (desktop)
   document.getElementById("filters-toggle").addEventListener("click", openDrawer);
   document.getElementById("drawer-close").addEventListener("click", closeDrawer);
-  document.getElementById("filter-backdrop").addEventListener("click", closeDrawer);
+  // Shared backdrop — dispatch to whichever drawer is open
+  document.getElementById("filter-backdrop").addEventListener("click", () => {
+    if (burgerDrawerOpen) closeBurgerDrawer(); else closeDrawer();
+  });
 
-  // Team search (now inside drawer)
+  // Burger drawer (mobile)
+  document.getElementById("burger-btn").addEventListener("click", openBurgerDrawer);
+  document.getElementById("burger-drawer-close").addEventListener("click", closeBurgerDrawer);
+  document.getElementById("burger-reset-btn").addEventListener("click", () => {
+    activeLeague   = "all";
+    activeBetType  = "all";
+    teamSearch     = "";
+    activeDateBets = "all";
+    activeDateHist = "all";
+    document.getElementById("team-search").value = "";
+    document.getElementById("team-search-mobile").value = "";
+    updateFilterUI();
+    renderBetsPanel();
+    resetHistoryPagination();
+    closeBurgerDrawer();
+  });
+
+  // Bottom nav tabs (mobile)
+  document.querySelectorAll(".bottom-nav-btn").forEach(btn =>
+    btn.addEventListener("click", () => setMainTab(btn.dataset.main))
+  );
+
+  // Sport popover (bottom nav, mobile)
+  const sportPopover = document.getElementById("sport-popover");
+  const sportNavBtn  = document.getElementById("sport-nav-btn");
+  sportNavBtn.addEventListener("click", e => {
+    e.stopPropagation();
+    const isOpen = !sportPopover.classList.contains("hidden");
+    sportPopover.classList.toggle("hidden", isOpen);
+    sportNavBtn.setAttribute("aria-expanded", String(!isOpen));
+  });
+  document.querySelectorAll(".sport-pop-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeSport   = btn.dataset.sport;
+      activeLeague  = "all";
+      activeBetType = "all";
+      teamSearch    = "";
+      document.getElementById("team-search").value = "";
+      document.getElementById("team-search-mobile").value = "";
+      sportPopover.classList.add("hidden");
+      sportNavBtn.setAttribute("aria-expanded", "false");
+      updateFilterUI();
+      renderBetsPanel();
+      resetHistoryPagination();
+    });
+  });
+  document.addEventListener("click", e => {
+    if (!sportNavBtn.contains(e.target) && !sportPopover.contains(e.target)) {
+      sportPopover.classList.add("hidden");
+      sportNavBtn.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  // Desktop team search
   document.getElementById("team-search").addEventListener("input", e => {
     teamSearch = e.target.value.trim();
     updateFilterBadge();
@@ -1405,6 +1696,34 @@ async function init() {
     resetHistoryPagination();
   });
 
+  // Mobile team search (header)
+  document.getElementById("team-search-mobile").addEventListener("input", e => {
+    teamSearch = e.target.value.trim();
+    document.getElementById("team-search").value = teamSearch;
+    updateFilterBadge();
+    renderBetsPanel();
+    resetHistoryPagination();
+  });
+
+
+  // ── Chip remove (delegated on both chip containers) ───────────
+  function removeFilterChip(key) {
+    if (key === "league")   { activeLeague   = "all"; }
+    if (key === "bettype")  { activeBetType  = "all"; }
+    if (key === "team")     { teamSearch = ""; document.getElementById("team-search").value = ""; document.getElementById("team-search-mobile").value = ""; }
+    if (key === "datebets") { activeDateBets = "all"; }
+    if (key === "datehist") { activeDateHist = "all"; }
+    updateFilterUI();
+    renderBetsPanel();
+    resetHistoryPagination();
+  }
+  ["active-filter-chips", "active-filter-chips-mobile"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", e => {
+      const btn = e.target.closest(".chip-remove");
+      if (btn) removeFilterChip(btn.dataset.filterKey);
+    });
+  });
 
   // ── Infinite scroll for history ───────────────────────────────
   const _sentinel = document.getElementById("history-sentinel");
@@ -1428,14 +1747,16 @@ async function init() {
   historyObserver.observe(_sentinel);
 
   showLoading();
+  await refreshData();
+}
 
+async function refreshData() {
   try {
     const [betsResult, histResult] = await Promise.all([fetchBets(), fetchHistoryPage(0)]);
     betsData      = betsResult;
     historyTotal  = histResult.count;
     historyLoaded = histResult.data;
     histData      = historyLoaded;
-    const matchCount = groupIntoMatches(betsData).length;
     const allRows = [...betsData, ...histData];
     const latestRun = allRows.length
       ? new Date(Math.max(...allRows.map(r => new Date(r.created_at))))
@@ -1450,6 +1771,84 @@ async function init() {
     document.getElementById("cards-container").innerHTML = "";
   }
 }
+
+// ── Pull-to-refresh (mobile only) ─────────────────────────────
+(function setupPullToRefresh() {
+  const THRESHOLD = 80;   // px of pull needed to trigger
+  const MAX_PULL  = 110;  // max visual travel
+  const indicator = document.getElementById("ptr-indicator");
+  if (!indicator) return;
+
+  let startY    = 0;
+  let pulling   = false;
+  let refreshing = false;
+
+  function setIndicator(translatePx, opacity, animated) {
+    indicator.style.transition = animated ? "transform 0.3s ease, opacity 0.3s ease" : "none";
+    indicator.style.transform  = `translateY(calc(-100% + ${translatePx}px))`;
+    indicator.style.opacity    = String(opacity);
+  }
+
+  document.addEventListener("touchstart", e => {
+    if (refreshing || window.scrollY !== 0) return;
+    startY  = e.touches[0].clientY;
+    pulling = true;
+  }, { passive: true });
+
+  document.addEventListener("touchmove", e => {
+    if (!pulling || refreshing) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy <= 0) { pulling = false; return; }
+    // Rubber-band: slow down as it extends past threshold
+    const travel  = Math.min(dy * 0.5, MAX_PULL);
+    const opacity = Math.min(dy / THRESHOLD, 1);
+    setIndicator(travel, opacity, false);
+  }, { passive: true });
+
+  document.addEventListener("touchend", async e => {
+    if (!pulling || refreshing) { pulling = false; return; }
+    const dy = e.changedTouches[0].clientY - startY;
+    pulling = false;
+
+    if (dy < THRESHOLD) {
+      setIndicator(0, 0, true);
+      return;
+    }
+
+    // Triggered — lock indicator at visible position while fetching
+    refreshing = true;
+    setIndicator(MAX_PULL, 1, true);
+
+    try {
+      await refreshData();
+    } finally {
+      setIndicator(0, 0, true);
+      refreshing = false;
+    }
+  }, { passive: true });
+})();
+
+// ── Bottom nav scroll-hide (mobile only) ──────────────────────
+(function setupBottomNavScroll() {
+  const nav = document.getElementById("bottom-nav");
+  if (!nav) return;
+  let lastY = 0, ticking = false;
+  window.addEventListener("scroll", () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      if (window.innerWidth < 768) {
+        if (window.scrollY > lastY && window.scrollY > 60) {
+          nav.classList.add("hide-nav");
+        } else {
+          nav.classList.remove("hide-nav");
+        }
+      }
+      lastY = window.scrollY;
+      ticking = false;
+    });
+  }, { passive: true });
+})();
 
 init();
 </script>
