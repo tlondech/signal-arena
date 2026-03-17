@@ -962,7 +962,10 @@ function renderBetsPanel() {
 
   // Filter bets within each match if bet type is active
   if (activeBetType !== "all") {
-    filtered = filtered.map(m => ({...m, bets: m.bets.filter(b => b.outcome === activeBetType)}));
+    const isPrefix = activeBetType.endsWith("_");
+    filtered = filtered.map(m => ({...m, bets: m.bets.filter(b =>
+      isPrefix ? b.outcome.startsWith(activeBetType) : b.outcome === activeBetType
+    )}));
   }
 
   const container = document.getElementById("cards-container");
