@@ -168,7 +168,14 @@ All settings can be overridden via `.env`:
 ├── constants.py                     # Shared constants (EV thresholds, live window durations)
 ├── requirements.txt
 ├── .env.example
-├── index.html                       # Generated report (committed by CI for GitHub Pages)
+├── index.html                       # SPA shell — HTML structure only, no inline JS
+│
+├── js/                              # ES module frontend (no bundler required)
+│   ├── app.js                       # Entry point: init(), refreshData(), event wiring, IIFEs
+│   ├── ui.js                        # All rendering, filter chips, drawer/tab/pill logic
+│   ├── api.js                       # fetchBets(), fetchHistoryPage() — Supabase queries
+│   ├── state.js                     # Centralised mutable state object (single source of truth)
+│   └── config.js                    # Supabase client (ESM CDN build)
 │
 ├── .github/workflows/
 │   └── daily_update.yml             # Runs every 6 hours, auto-commits index.html
@@ -303,15 +310,26 @@ Typical cost: **7 football + 1 NBA + 2–4 tennis = 10–12 requests per run**.
 ## Output
 
 ### HTML Report (`index.html`)
-Interactive dashboard showing:
-- Today's value bets grouped by league/tournament, with odds, true probability, and EV
+Interactive SPA dashboard — frontend logic lives in `js/` as plain ES modules (no bundler).
+
+**Content:**
+- Value bets grouped by date/league, with odds, true probability, and EV
 - Team form, standings position, rest days (football)
 - Team form and logos (basketball)
 - Player flag icons (tennis)
 - UCL aggregate context for second legs
 - Team news (injury/suspension context) for high-EV football bets near kickoff (requires `NEWS_API_KEY`)
-- Bet history with settled outcomes (won/lost)
-- Filter drawer to narrow bets by league, market, or EV range
+- Bet history with won/lost outcomes, stats grid (record, win rate, P&L/ROI), infinite scroll
+- Removable active-filter chips
+
+**Mobile layout (< 768 px):**
+- Slim top bar — burger menu (left), team search (centre), legend `?` (right)
+- Left-side burger drawer with league, bet-type, and date filter pills; sticky Reset button
+- Sticky bottom tab bar (Value Bets ⚡ · History 🕐 · Sport picker) that hides on scroll-down and reappears on scroll-up
+- Sport popover from the bottom bar replaces the sport pill row
+- Pull-to-refresh gesture
+
+**Desktop layout (≥ 768 px):** title header, inline tab bar, sport/search/filter action bar, right-side filter drawer — unchanged.
 
 ### Database (`data/bets.db`)
 SQLite database with four tables:
