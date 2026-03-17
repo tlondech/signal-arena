@@ -6,7 +6,7 @@ export function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 export function fmtDate(iso) {
-  return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  return new Date(iso).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
 }
 export function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
@@ -15,14 +15,14 @@ export function relativeDate(date) {
   const d   = new Date(date);
   const now = new Date();
   const tz  = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const time = d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz });
   const startOfToday     = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfYesterday = new Date(startOfToday - 864e5);
   const startOfWeek      = new Date(startOfToday - 6 * 864e5);
   if (d >= startOfToday)     return `Today at ${time}`;
   if (d >= startOfYesterday) return `Yesterday at ${time}`;
-  if (d >= startOfWeek)      return `${d.toLocaleDateString("en-GB", { weekday: "long" })} at ${time}`;
-  return `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} at ${time}`;
+  if (d >= startOfWeek)      return `${d.toLocaleDateString(undefined, { weekday: "long" })} at ${time}`;
+  return `${d.toLocaleDateString(undefined, { day: "numeric", month: "short" })} at ${time}`;
 }
 function ordinal(n) {
   if (!n) return "";
@@ -109,12 +109,11 @@ const HIST_COLS = [
   { key: "kickoff",       label: "Date",   render: r => { const d = new Date(r.kickoff); const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; const date = d.toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: tz }); const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: tz }); return `<span class="whitespace-nowrap leading-tight">${esc(date)}<br><span class="text-gray-400 dark:text-gray-500 text-xs">${esc(time)}</span></span>`; } },
   { key: "league_name",   label: "League", render: r => `<span class="whitespace-nowrap">${leagueBadge(r.league_key, LEAGUE_SHORT_NAMES[r.league_key] || r.league_name)}</span>` },
   { key: "home_team",     label: "Match",  render: r => `<span class="whitespace-nowrap">${esc(r.home_team)} <span class="text-gray-400 mx-0.5">v</span> ${esc(r.away_team)}</span>` },
-  { key: "outcome_label", label: "Bet",    render: r => `<span class="whitespace-nowrap px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-medium">${esc(r.outcome_label)}</span>` },
+  { key: "outcome_label", label: "Bet",    render: r => `<span class="whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium ${betBadgeCls(r.result, true)}">${esc(r.outcome_label)}</span>` },
+  { key: "_score",        label: "Score",  render: r => r.actual_home_goals != null ? `${r.actual_home_goals}–${r.actual_away_goals}` : "—", sortKey: "actual_home_goals", align: "center" },
   { key: "odds",          label: "Odds",   render: r => `<span class="font-mono">${Number(r.odds).toFixed(2)}</span>`, align: "right" },
   { key: "true_prob",     label: "Prob%",  render: r => `${(r.true_prob * 100).toFixed(1)}%`, align: "right" },
   { key: "ev",            label: "EV%",    render: r => evLabel(r.ev), align: "right" },
-  { key: "_score",        label: "Score",  render: r => r.actual_home_goals != null ? `${r.actual_home_goals}–${r.actual_away_goals}` : "—", sortKey: "actual_home_goals", align: "center" },
-  { key: "result",        label: "Result", render: r => resultBadge(r.result), align: "center" },
 ];
 
 // ── Badge / chip helpers ───────────────────────────────────────
@@ -140,11 +139,13 @@ function formBubbles(form) {
     return `<span class="${cls} inline-block w-2.5 h-2.5 rounded-full" title="${r}"></span>`;
   }).join("");
 }
-function resultBadge(result) {
-  if (result === "won")  return `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Won</span>`;
-  if (result === "lost") return `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">Lost</span>`;
-  return `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Pending</span>`;
+function betBadgeCls(result, colored) {
+  if (!colored) return "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300";
+  if (result === "won")  return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
+  if (result === "lost") return "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300";
+  return "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300";
 }
+
 
 // ── Data grouping ──────────────────────────────────────────────
 export function groupIntoMatches(rows) {
@@ -306,12 +307,11 @@ export function renderCard(m, opts = {}) {
   const betsRows = m.bets.map(b => `
     <tr class="border-t border-gray-100 dark:border-gray-700/50">
       <td class="py-1.5 pr-2">
-        <div class="max-w-full"><span class="inline-block max-w-full truncate px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-medium align-middle">${betLabel(b)}</span></div>
+        <div class="max-w-full"><span class="inline-block max-w-full truncate px-2 py-0.5 rounded-full text-xs font-medium align-middle ${betBadgeCls(b.result, showResult)}">${betLabel(b)}</span></div>
       </td>
       <td class="py-1.5 pr-2 text-right font-mono text-sm">${Number(b.odds).toFixed(2)}</td>
       <td class="py-1.5 pr-2 text-right text-sm text-gray-500 dark:text-gray-400">${(b.true_prob * 100).toFixed(1)}%</td>
-      <td class="py-1.5 text-right text-sm font-semibold ${showResult ? "pr-2" : ""}">${evLabel(b.ev)}</td>
-      ${showResult ? `<td class="py-1.5 text-right">${resultBadge(b.result)}</td>` : ""}
+      <td class="py-1.5 text-right text-sm font-semibold">${evLabel(b.ev)}</td>
     </tr>`).join("");
 
   return `
@@ -359,8 +359,7 @@ export function renderCard(m, opts = {}) {
             <th class="w-[32%] pb-1 pr-2 text-left font-medium">Bet</th>
             <th class="pb-1 pr-2 text-right font-medium">Odds</th>
             <th class="pb-1 pr-2 text-right font-medium">Prob</th>
-            <th class="pb-1 text-right font-medium ${showResult ? "pr-2" : ""}">EV</th>
-            ${showResult ? `<th class="pb-1 text-right font-medium">Result</th>` : ""}
+            <th class="pb-1 text-right font-medium">EV</th>
           </tr>
         </thead>
         <tbody>${betsRows}</tbody>

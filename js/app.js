@@ -20,11 +20,21 @@ import {
 // ── Refresh all data ───────────────────────────────────────────
 export async function refreshData() {
   try {
+    // Reset pagination counters before fetching — filters stay untouched in state
+    state.historyPage     = 0;
+    state.historyLoaded   = [];
+    state.historyFetching = false;
+
     const [betsResult, histResult] = await Promise.all([fetchBets(), fetchHistoryPage(0)]);
     state.betsData      = betsResult;
     state.historyTotal  = histResult.count;
     state.historyLoaded = histResult.data;
     state.histData      = state.historyLoaded;
+
+    // Re-observe sentinel in case it was unobserved when all pages were loaded
+    const sentinel = document.getElementById("history-sentinel");
+    if (state.historyObserver && sentinel) state.historyObserver.observe(sentinel);
+
     const allRows = [...state.betsData, ...state.histData];
     const latestRun = allRows.length
       ? new Date(Math.max(...allRows.map(r => new Date(r.created_at))))
@@ -32,7 +42,11 @@ export async function refreshData() {
     const lastUpdatedText = "Last updated " + relativeDate(latestRun);
     document.getElementById("last-updated").textContent = lastUpdatedText;
     document.getElementById("last-updated-mobile").textContent = lastUpdatedText;
-    renderBetsPanel();
+
+    // Render whichever panel is currently visible
+    if (state.mainTab === "history") renderHistory();
+    else renderBetsPanel();
+
     updateHistoryCountUI();
   } catch (err) {
     showError(err.message || String(err));
