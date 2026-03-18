@@ -11,6 +11,7 @@ from supabase import create_client, Client
 
 from constants import FIXTURE_DATE_TOLERANCE_SECONDS
 from extractors.tennisdatauk_client import fetch_tennis_results
+from extractors.odds import fetch_tennis_scores
 from models.features import resolve_team_name
 
 logger = logging.getLogger(__name__)
@@ -213,7 +214,11 @@ def settle_supabase_bets(supabase: Client, all_raw_fixtures: list[dict], name_ma
     return _write_settled_bets(supabase, rows_to_update, "football via Supabase")
 
 
-def settle_tennis_supabase_bets(supabase: Client, active_tennis_league_keys: list[str]) -> int:
+def settle_tennis_supabase_bets(
+    supabase: Client,
+    active_tennis_league_keys: list[str],
+    odds_api_key: str = "",
+) -> int:
     """
     Settles unsettled tennis bets in Supabase using tennis-data.co.uk CSV results.
 
@@ -241,9 +246,22 @@ def settle_tennis_supabase_bets(supabase: Client, active_tennis_league_keys: lis
         logger.debug("No unsettled past tennis bets found.")
         return 0
 
-    # Build results index per league key: {(winner_last, loser_last, date_str): full_result}
+    # Union of currently-active keys + keys that appear in unsettled bets.
+    # Tournaments that have finished drop out of the Odds API, so their league keys
+    # won't be in active_tennis_league_keys — but we still need results for them.
+    all_keys = set(active_tennis_league_keys) | {bet.get("league_key", "") for bet in unsettled}
+    all_keys.discard("")
+
+    # Build results index per league key.
+    # Primary source: Odds API scores (real-time, works mid-tournament).
+    # Fallback: tennis-data.co.uk CSVs (only available after a tournament ends).
     results_by_league: dict[str, list[dict]] = {}
-    for lk in active_tennis_league_keys:
+    for lk in all_keys:
+        if odds_api_key:
+            api_results = fetch_tennis_scores(odds_api_key, lk)
+            if api_results:
+                results_by_league[lk] = api_results
+                continue
         results_by_league[lk] = fetch_tennis_results(lk, year)
 
     rows_to_update = []

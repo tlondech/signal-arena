@@ -29,6 +29,8 @@ For each active ATP/WTA tournament (discovered automatically each run):
 
 Elo ratings are computed once per run and shared across all tournaments for the same tour (ATP or WTA).
 
+**Settlement:** Completed match results are fetched from The Odds API `/v4/sports/{sport}/scores/` endpoint (real-time, works mid-tournament). For tournaments that have fully concluded and dropped off the Odds API, the fallback source is tennis-data.co.uk CSV files.
+
 ### NBA basketball pipeline
 
 1. **Fetches live odds** from The Odds API (Winamax lines), including spreads/handicap market
@@ -112,7 +114,7 @@ The report opens automatically in your browser.
 
 ## Automated Daily Updates
 
-A GitHub Actions workflow (`.github/workflows/daily_update.yml`) runs `python main.py --fetch` four times a day at **10:00, 14:00, 18:00, and 22:00 UTC**. It writes bet recommendations directly to Supabase; the frontend reads from Supabase at load time, so no file is committed on each run.
+A GitHub Actions workflow (`.github/workflows/daily_update.yml`) runs `python main.py --fetch` nine times a day at **06:07, 08:07, 10:07, 12:07, 14:07, 16:07, 18:07, 20:07, and 22:07 UTC** (every 2 hours). It writes bet recommendations directly to Supabase; the frontend reads from Supabase at load time, so no file is committed on each run.
 
 The only files the workflow ever commits are the three crest map JSONs (`data/football_crest_map.json`, `data/tennis_crest_map.json`, `data/nba_crest_map.json`) — and only when they actually change (new teams or players detected).
 
@@ -183,7 +185,7 @@ All settings can be overridden via `.env`:
 │   └── daily_update.yml             # Runs every 6 hours, auto-commits index.html
 │
 ├── extractors/
-│   ├── odds.py                      # The Odds API client (1X2, O/U, spreads, tennis discovery)
+│   ├── odds.py                      # The Odds API client (1X2, O/U, spreads, tennis discovery, scores)
 │   ├── nba_data_client.py           # NBA Stats API client (game logs, recent results)
 │   ├── tennis_data_client.py        # Jeff Sackmann ATP/WTA historical data client
 │   ├── footballdata_client.py       # football-data.co.uk CSV client (domestic leagues)
@@ -203,7 +205,7 @@ All settings can be overridden via `.env`:
 │   ├── fetch.py                     # Data fetching and SQLite persistence
 │   ├── evaluate.py                  # Feature building, match evaluation, news enrichment
 │   ├── helpers.py                   # Shared helpers (is_live, build_leg2_map)
-│   └── settlement.py                # Dual-source settlement (football-data.org + .co.uk)
+│   └── settlement.py                # Dual-source football settlement (football-data.org + .co.uk)
 │
 ├── db/
 │   ├── schema.py                    # SQLAlchemy models (matches, odds, fixtures, bet_history)
@@ -292,22 +294,6 @@ When `NEWS_API_KEY` is set, the pipeline fetches recent articles from NewsAPI fo
 
 ---
 
-## Odds API Quota
-
-Each run consumes one API request per active league/tournament:
-
-| Call | Cost |
-|------|------|
-| `/v4/sports` (tennis discovery) | Free |
-| `/v4/sports/{sport}/odds/` per football league | 1 request |
-| `/v4/sports/{sport}/odds/` per active tennis tournament | 1 request |
-| `/v4/sports/basketball_nba/odds/` (NBA, h2h + totals + spreads) | 1 request |
-| Jeff Sackmann CSV fetches | Free (GitHub) |
-| NBA Stats API (`nba_api`) | Free |
-
-Typical cost: **7 football + 1 NBA + 2–4 tennis = 10–12 requests per run**.
-
----
 
 ## Output
 

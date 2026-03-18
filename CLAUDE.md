@@ -52,6 +52,7 @@ GitHub Actions (`.github/workflows/daily_update.yml`) runs `python main.py --fet
 - Don't add league keys to `LEAGUES` without also updating `data/team_name_map.json`
 - Don't mock the Supabase or SQLite layers in tests — use real connections or skip
 - Don't bundle or transpile the JS frontend; it uses native ES modules via CDN imports
+- Don't mention API quota in README.md file
 
 ## Vocabulary
 Act as a strict UX copywriter for a premium, data-driven sports betting analytics platform. Our product surfaces positive Expected Value (+EV) opportunities based on statistical models. We treat betting as a mathematical discipline, not gambling.
