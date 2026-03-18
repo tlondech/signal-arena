@@ -24,8 +24,8 @@ import {
 } from "./auth.js";
 import {
   fetchSubscription,
-  renderPaywall,
-  attachPaywallListeners,
+  pollSubscription,
+  startCheckout,
   renderAccountMenu,
   attachAccountMenuListeners,
 } from "./billing.js";
@@ -142,6 +142,9 @@ export async function refreshData() {
 
 // ── Init ───────────────────────────────────────────────────────
 async function init() {
+  const params       = new URLSearchParams(window.location.search);
+  const fromCheckout = params.get("checkout") === "success";
+
   // ── 1. Auth guard ─────────────────────────────────────────────
   const session = await getSession();
   if (!session) {
@@ -152,11 +155,21 @@ async function init() {
   }
 
   // ── 2. Subscription guard ─────────────────────────────────────
-  const sub = await fetchSubscription(session.user.id);
+  let sub = await fetchSubscription(session.user.id);
+
+  // Stripe webhook may not have fired yet — poll briefly before giving up
+  if (fromCheckout && (!sub || !["active", "trialing"].includes(sub.status))) {
+    showLoading();
+    sub = await pollSubscription(session.user.id, 8, 1500);
+  }
+
   if (!sub || !["active", "trialing"].includes(sub.status)) {
-    document.body.innerHTML = renderPaywall(session);
-    attachPaywallListeners(session);
+    await startCheckout(session);
     return;
+  }
+
+  if (fromCheckout) {
+    history.replaceState(null, "", window.location.pathname);
   }
 
   // ── 3. Mount account menu on the account icon(s) ──────────────
@@ -175,6 +188,31 @@ async function init() {
   });
 
   setMainTab("bets");
+
+  if (fromCheckout) {
+    const banner = document.getElementById("welcome-banner");
+    if (banner) {
+      banner.classList.remove("hidden");
+      document.getElementById("welcome-dismiss")?.addEventListener("click", () => banner.classList.add("hidden"));
+      setTimeout(() => banner.classList.add("hidden"), 8000);
+    }
+  }
+
+  // ── Smart Betting onboarding modal (shown once per user) ──────
+  if (!localStorage.getItem("smart_betting_ack")) {
+    const modal = document.getElementById("smart-betting-modal");
+    if (modal) {
+      modal.classList.remove("hidden");
+      // Block Escape — modal is intentionally un-skippable
+      const blockEsc = e => { if (e.key === "Escape") e.stopImmediatePropagation(); };
+      document.addEventListener("keydown", blockEsc, true);
+      document.getElementById("smart-modal-ack")?.addEventListener("click", () => {
+        localStorage.setItem("smart_betting_ack", "1");
+        modal.classList.add("hidden");
+        document.removeEventListener("keydown", blockEsc, true);
+      }, { once: true });
+    }
+  }
 
   // Desktop tab buttons
   document.querySelectorAll(".main-tab-btn").forEach(btn =>

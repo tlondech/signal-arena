@@ -14,6 +14,53 @@ export async function fetchSubscription(userId) {
   return data; // null if no row yet
 }
 
+// Retries fetchSubscription until the subscription is active/trialing.
+// Used after Stripe checkout to wait for the webhook to fire.
+export async function pollSubscription(userId, retries = 8, intervalMs = 1500) {
+  for (let i = 0; i < retries; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, intervalMs));
+    const sub = await fetchSubscription(userId);
+    if (sub && ["active", "trialing"].includes(sub.status)) return sub;
+  }
+  return null;
+}
+
+// ── Auto-redirect to Stripe Checkout ──────────────────────────
+
+export async function startCheckout(session) {
+  document.body.innerHTML = `
+    <div class="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-6 text-center">
+      <div class="w-full max-w-xs">
+        <div class="spinner mx-auto mb-8"></div>
+        <h1 class="text-lg font-bold text-white mb-1">Starting your free trial</h1>
+        <p class="text-sm text-gray-400 mb-2">7 days free, then €19.99/month. Cancel any time.</p>
+        <p class="text-xs text-gray-600 mb-8">You won't be charged until your trial ends.</p>
+        <p id="checkout-error" class="hidden text-xs text-red-400 mb-6"></p>
+        <p class="text-xs text-gray-700 leading-relaxed">
+          For informational purposes only. Not financial or betting advice. Bet responsibly.
+        </p>
+      </div>
+    </div>`;
+
+  try {
+    const res = await fetch(CREATE_CHECKOUT_FN, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const { url } = await res.json();
+    window.location.href = url;
+  } catch (err) {
+    const errorEl = document.getElementById("checkout-error");
+    errorEl.textContent = (err.message || "Could not start checkout.") + " Please try again.";
+    errorEl.classList.remove("hidden");
+    document.querySelector(".spinner").classList.add("hidden");
+  }
+}
+
 // ── Paywall screen ─────────────────────────────────────────────
 
 export function renderPaywall(session) {
@@ -23,14 +70,14 @@ export function renderPaywall(session) {
         <div class="text-4xl mb-4">⚡</div>
         <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Subscribe to unlock</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
-          Get daily statistical value bets across football, basketball, and tennis — powered by Dixon-Coles, Elo, and Gaussian models.
+          Get daily +EV recommendations across football, basketball, and tennis — powered by Dixon-Coles, Elo, and Gaussian models.
         </p>
 
         <ul class="text-left space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-8">
           <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> Football, tennis &amp; NBA value bets</li>
           <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> Updated 4× daily via live odds</li>
           <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> Full history &amp; ROI tracker</li>
-          <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> Bookmaker links on every bet</li>
+          <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> Bookmaker links on every recommendation</li>
         </ul>
 
         <button id="subscribe-btn"

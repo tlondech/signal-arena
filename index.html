@@ -73,7 +73,7 @@
     #refresh-icon.spinning { animation: spin 0.8s linear infinite; }
   </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
+<body class="bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen overflow-x-hidden">
 
 <!-- ── Burger drawer (slides from LEFT, mobile only) ─────────── -->
 <aside id="burger-drawer" role="dialog" aria-label="Menu" aria-modal="true">
@@ -180,7 +180,7 @@
       </div>
       <div class="flex items-center gap-4">
         <nav class="hidden md:flex items-center gap-1">
-          <button class="main-tab-btn px-3 py-1.5 text-sm font-medium rounded-lg border-b-2 transition-colors" data-main="bets">Value Bets</button>
+          <button class="main-tab-btn px-3 py-1.5 text-sm font-medium rounded-lg border-b-2 transition-colors" data-main="bets">Recommendations</button>
           <button class="main-tab-btn px-3 py-1.5 text-sm font-medium rounded-lg border-b-2 transition-colors" data-main="history">History</button>
         </nav>
         <div class="relative">
@@ -238,6 +238,20 @@
 <!-- ── Main ─────────────────────────────────────────────────── -->
 <main class="max-w-6xl mx-auto px-4 py-5 pb-20 md:pb-5">
 
+  <!-- Welcome banner (shown after checkout) -->
+  <div id="welcome-banner" class="hidden mb-4 px-4 py-3 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700 rounded-xl text-sm">
+    <div class="flex items-start justify-between gap-3">
+      <div class="flex items-start gap-2.5">
+        <span class="text-green-500 text-base shrink-0 mt-0.5">✓</span>
+        <div>
+          <p class="font-semibold text-green-800 dark:text-green-300">Trial started — here are today's recommendations.</p>
+          <p class="text-green-700 dark:text-green-400 text-xs mt-0.5">Your 7-day free trial is active. You won't be charged until it ends.</p>
+        </div>
+      </div>
+      <button id="welcome-dismiss" class="text-green-500 hover:text-green-700 dark:hover:text-green-300 shrink-0 text-xl leading-none">&times;</button>
+    </div>
+  </div>
+
   <!-- Error banner -->
   <div id="error-banner" class="hidden mb-4 px-4 py-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg text-red-700 dark:text-red-300 text-sm"></div>
 
@@ -253,7 +267,7 @@
     <!-- Stats grid -->
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
       <div id="stat-total"   class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Bets</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Recommendations</p>
         <p class="text-base font-bold whitespace-nowrap">—</p>
       </div>
       <div id="stat-avg-odds" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
@@ -276,8 +290,8 @@
               <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
             </svg>
             <div id="stat-pnl-tooltip" class="hidden absolute top-full left-0 md:left-auto md:right-0 mt-2 w-56 max-w-[85vw] bg-gray-800 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 shadow-lg z-50 leading-relaxed">
-              <p><span class="font-semibold">Turnover</span> — total staked on settled bets</p>
-              <p class="mt-1"><span class="font-semibold">P&amp;L</span> — profit/loss after all settled bets</p>
+              <p><span class="font-semibold">Turnover</span> — total staked on settled picks</p>
+              <p class="mt-1"><span class="font-semibold">P&amp;L</span> — profit/loss across settled picks</p>
               <p class="mt-1"><span class="font-semibold">ROI</span> — P&amp;L as a % of turnover</p>
               <p class="mt-1 text-gray-400">Stakes: €5 (odds ≥3), €10 (2–3), €20 (&lt;2)</p>
             </div>
@@ -370,6 +384,45 @@
     <a href="./terms.html" class="underline hover:text-gray-500">Terms of Service</a>
   </p>
 </footer>
+
+<!-- ── Smart Betting onboarding modal ────────────────────────── -->
+<div id="smart-betting-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
+  aria-modal="true" role="dialog" aria-labelledby="smart-modal-title">
+  <!-- Backdrop — intentionally non-interactive so modal is un-skippable -->
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+  <!-- Panel -->
+  <div class="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl px-7 py-8">
+    <h2 id="smart-modal-title" class="text-xl font-extrabold text-gray-900 dark:text-gray-100 mb-1">How to read these recommendations.</h2>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Read this once to get the most out of the data.</p>
+    <ul class="space-y-5 mb-8">
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-bold">1</span>
+        <div>
+          <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">Variance is real.</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Not every recommendation will land. Our models identify a statistical edge (+EV), but variance happens. The edge shows up over hundreds of recommendations, not just one weekend.</p>
+        </div>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-bold">2</span>
+        <div>
+          <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">Stake responsibly.</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">If you act on a recommendation, never allocate more than 1–2% of your total bankroll to a single recommendation. Staking discipline matters as much as the model.</p>
+        </div>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-bold">3</span>
+        <div>
+          <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">Market odds adjust quickly.</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Bookmakers reprice mispriced odds fast. High +EV recommendations carry the most edge at the moment they appear.</p>
+        </div>
+      </li>
+    </ul>
+    <button id="smart-modal-ack"
+      class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">
+      I understand, show me today's recommendations.
+    </button>
+  </div>
+</div>
 
 <script type="module" src="./js/app.js"></script>
 

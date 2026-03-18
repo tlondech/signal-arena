@@ -10,7 +10,9 @@ export async function getSession() {
 export async function signInWithMagicLink(email) {
   const { error } = await sb.auth.signInWithOtp({
     email,
-    options: {},
+    options: {
+      emailRedirectTo: window.location.origin,
+    },
   });
   if (error) throw error;
 }
@@ -69,7 +71,7 @@ export function renderAuthScreen() {
           <table class="w-full text-sm table-fixed">
             <thead>
               <tr class="text-xs text-gray-400 uppercase">
-                <th class="w-[32%] pb-1 pr-2 text-left font-medium">Bet</th>
+                <th class="w-[32%] pb-1 pr-2 text-left font-medium">Signal</th>
                 <th class="pb-1 pr-2 text-right font-medium">Odds</th>
                 <th class="pb-1 pr-2 text-right font-medium">Prob</th>
                 <th class="pb-1 text-right font-medium">EV</th>
@@ -94,7 +96,7 @@ export function renderAuthScreen() {
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden opacity-90">
         <div class="flex items-start justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700">
           <div class="flex flex-wrap items-center gap-2 mr-3">
-            <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">Roland Garros · SF</span>
+            <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">Roland Garros · F</span>
             <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">Clay</span>
           </div>
           <span class="text-sm font-semibold tabular-nums text-gray-500 dark:text-gray-400">14:00</span>
@@ -113,7 +115,7 @@ export function renderAuthScreen() {
           <table class="w-full text-sm table-fixed">
             <thead>
               <tr class="text-xs text-gray-400 uppercase">
-                <th class="w-[32%] pb-1 pr-2 text-left font-medium">Bet</th>
+                <th class="w-[32%] pb-1 pr-2 text-left font-medium">Signal</th>
                 <th class="pb-1 pr-2 text-right font-medium">Odds</th>
                 <th class="pb-1 pr-2 text-right font-medium">Prob</th>
                 <th class="pb-1 text-right font-medium">EV</th>
@@ -156,7 +158,7 @@ export function renderAuthScreen() {
           <table class="w-full text-sm table-fixed">
             <thead>
               <tr class="text-xs text-gray-400 uppercase">
-                <th class="w-[32%] pb-1 pr-2 text-left font-medium">Bet</th>
+                <th class="w-[32%] pb-1 pr-2 text-left font-medium">Signal</th>
                 <th class="pb-1 pr-2 text-right font-medium">Odds</th>
                 <th class="pb-1 pr-2 text-right font-medium">Prob</th>
                 <th class="pb-1 text-right font-medium">EV</th>
@@ -176,7 +178,7 @@ export function renderAuthScreen() {
     </div>`;
 
   return `
-    <div class="min-h-screen bg-gray-950 text-gray-100">
+    <div class="min-h-screen bg-gray-950 text-gray-100 overflow-x-hidden">
       <div class="max-w-6xl mx-auto px-6 py-12 md:py-20 flex flex-col md:flex-row md:items-start gap-12 md:gap-16">
 
         <!-- LEFT PANEL -->
@@ -185,28 +187,25 @@ export function renderAuthScreen() {
           <!-- Hero -->
           <div class="mb-10">
             <div class="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-3">Daily Value Bets</div>
-            <h1 class="text-3xl font-extrabold mb-3 leading-tight text-white">Find value bets before the bookmakers close them</h1>
+            <h1 class="text-3xl font-extrabold mb-3 leading-tight text-white">Spot mispriced lines before bookmakers correct them</h1>
             <p class="text-gray-400 text-base leading-relaxed">Statistical models surface mispriced odds across football, basketball and tennis.</p>
           </div>
 
           <!-- How it works -->
           <div class="mb-8">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">How it works</p>
-            <div class="flex gap-3">
-              <div class="flex-1 bg-gray-900 rounded-xl p-3.5 border border-gray-800 text-center">
-                <div class="text-xl mb-1.5">🧮</div>
-                <div class="text-xs font-semibold text-gray-300 mb-1">Models run</div>
-                <div class="text-xs text-gray-600">Probability estimates per match</div>
+            <div class="space-y-3">
+              <div class="flex gap-3 items-start">
+                <span class="text-lg mt-0.5 shrink-0">🧮</span>
+                <p class="text-sm text-gray-400"><span class="font-semibold text-gray-200">We do the math</span> — Our models analyse hundreds of matches across football, basketball, and tennis to estimate the real probability of each outcome — more accurately than bookmakers price them.</p>
               </div>
-              <div class="flex-1 bg-gray-900 rounded-xl p-3.5 border border-gray-800 text-center">
-                <div class="text-xl mb-1.5">📊</div>
-                <div class="text-xs font-semibold text-gray-300 mb-1">EV calculated</div>
-                <div class="text-xs text-gray-600">Against live bookmaker lines</div>
+              <div class="flex gap-3 items-start">
+                <span class="text-lg mt-0.5 shrink-0">📊</span>
+                <p class="text-sm text-gray-400"><span class="font-semibold text-gray-200">We find the gaps</span> — When a bookmaker's odds are higher than they should be, that's a mispriced line. We flag these automatically against live odds, all day, every day.</p>
               </div>
-              <div class="flex-1 bg-gray-900 rounded-xl p-3.5 border border-gray-800 text-center">
-                <div class="text-xl mb-1.5">🎯</div>
-                <div class="text-xs font-semibold text-gray-300 mb-1">Best bets surfaced</div>
-                <div class="text-xs text-gray-600">With links and ROI tracking</div>
+              <div class="flex gap-3 items-start">
+                <span class="text-lg mt-0.5 shrink-0">🎯</span>
+                <p class="text-sm text-gray-400"><span class="font-semibold text-gray-200">You get the strongest signals</span> — Only the highest-edge opportunities land in your feed, with a direct link to act before the line moves.</p>
               </div>
             </div>
           </div>
@@ -220,10 +219,10 @@ export function renderAuthScreen() {
               <span class="text-green-400 mt-0.5 shrink-0">✓</span>Dixon-Coles, Elo, and Gaussian models
             </li>
             <li class="flex items-start gap-2.5 text-sm text-gray-300">
-              <span class="text-green-400 mt-0.5 shrink-0">✓</span>Full bet history with ROI tracking
+              <span class="text-green-400 mt-0.5 shrink-0">✓</span>Full history with ROI tracking
             </li>
             <li class="flex items-start gap-2.5 text-sm text-gray-300">
-              <span class="text-green-400 mt-0.5 shrink-0">✓</span>Direct bookmaker links on every bet
+              <span class="text-green-400 mt-0.5 shrink-0">✓</span>Bookmaker links on every recommendation
             </li>
           </ul>
 
@@ -257,9 +256,9 @@ export function renderAuthScreen() {
           </p>
         </div>
 
-        <!-- RIGHT PANEL (desktop only) -->
-        <div class="hidden md:flex flex-col gap-4 w-96 shrink-0 mt-4">
-          <p class="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Example bets</p>
+        <!-- RIGHT PANEL -->
+        <div class="flex flex-col gap-4 w-full md:w-96 shrink-0 md:mt-4">
+          <p class="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Example recommendations</p>
           ${sampleCard1}
           ${sampleCard3}
           ${sampleCard2}

@@ -114,7 +114,7 @@ const HIST_COLS = [
   { key: "kickoff",       label: "Date",   render: r => { const d = new Date(r.kickoff); const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; const date = d.toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: tz }); const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: tz }); return `<span class="whitespace-nowrap leading-tight">${esc(date)}<br><span class="text-gray-400 dark:text-gray-500 text-xs">${esc(time)}</span></span>`; } },
   { key: "league_name",   label: "League", render: r => `<span class="whitespace-nowrap">${leagueBadge(r.league_key, LEAGUE_SHORT_NAMES[r.league_key] || r.league_name)}</span>` },
   { key: "home_team",     label: "Match",  render: r => `<span class="whitespace-nowrap">${esc(r.home_team)} <span class="text-gray-400 mx-0.5">v</span> ${esc(r.away_team)}</span>` },
-  { key: "outcome_label", label: "Bet",    labelHtml: `Bet${infoIcon("Recommended outcome")}`,   render: r => `<span class="whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium ${betBadgeCls(r.result, true)}">${esc(r.outcome_label)}</span>` },
+  { key: "outcome_label", label: "Selection",   labelHtml: `Selection${infoIcon("Highest-EV outcome identified by the model")}`, render: r => `<span class="whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium ${betBadgeCls(r.result, true)}">${esc(r.outcome_label)}</span>` },
   { key: "_score",        label: "Score",  render: r => r.actual_home_goals != null ? `${r.actual_home_goals}–${r.actual_away_goals}` : "—", sortKey: "actual_home_goals", align: "center" },
   { key: "odds",          label: "Odds",   labelHtml: `Odds${infoIcon("Decimal odds at time of recommendation")}`,  render: r => `<span class="font-mono">${Number(r.odds).toFixed(2)}</span>`, align: "right" },
   { key: "true_prob",     label: "Prob%",  labelHtml: `Prob%${infoIcon("Model's estimated win probability")}`, render: r => `${(r.true_prob * 100).toFixed(1)}%`, align: "right" },
@@ -370,7 +370,7 @@ export function renderCard(m, opts = {}) {
       <table class="w-full text-sm table-fixed">
         <thead>
           <tr class="text-xs text-gray-400 uppercase">
-            <th class="w-[32%] pb-1 pr-2 text-left font-medium"><span class="inline-flex items-center">Bet${infoIcon("The outcome the model recommends backing")}</span></th>
+            <th class="w-[32%] pb-1 pr-2 text-left font-medium"><span class="inline-flex items-center">Signal${infoIcon("The outcome with the highest model edge")}</span></th>
             <th class="pb-1 pr-2 text-right font-medium"><span class="inline-flex items-center justify-end">Odds${infoIcon("Decimal odds offered by the bookmaker")}</span></th>
             <th class="pb-1 pr-2 text-right font-medium"><span class="inline-flex items-center justify-end">Prob${infoIcon("Model's estimated probability of this outcome")}</span></th>
             <th class="pb-1 text-right font-medium"><span class="inline-flex items-center justify-end">EV${infoIcon("Expected value — gain per €1 staked if the model is right. Green = good value, yellow/red = high edge, verify odds first")}</span></th>
@@ -714,7 +714,7 @@ export function renderBetsPanel() {
 
   const container = document.getElementById("cards-container");
   if (filtered.length === 0) {
-    container.innerHTML = `<p class="text-center text-gray-400 py-12">No bets match the current filters.</p>`;
+    container.innerHTML = `<p class="text-center text-gray-400 py-12">No recommendations match the current filters.</p>`;
     return;
   }
 
@@ -906,11 +906,11 @@ export function updateHistoryCountUI() {
   if (state.historyTotal === 0) {
     label.textContent = "";
   } else if (shown >= state.historyTotal) {
-    label.textContent = `All ${state.historyTotal} settled bets loaded`;
+    label.textContent = `All ${state.historyTotal} recommendations loaded`;
     const sentinel = document.getElementById("history-sentinel");
     if (state.historyObserver && sentinel) state.historyObserver.unobserve(sentinel);
   } else {
-    label.textContent = `${shown} / ${state.historyTotal} settled bets`;
+    label.textContent = `${shown} / ${state.historyTotal} recommendations`;
   }
 }
 
