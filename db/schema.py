@@ -57,9 +57,9 @@ class Fixture(Base):
     away_xg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
 
-class BetHistory(Base):
-    """Persistent record of every recommended bet and its eventual outcome."""
-    __tablename__ = "bet_history"
+class SignalHistory(Base):
+    """Persistent record of every detected signal and its eventual outcome."""
+    __tablename__ = "signal_history"
 
     id                = Column(Integer,  primary_key=True, autoincrement=True)
     recorded_date     = Column(String,   nullable=False)   # YYYY-MM-DD
@@ -98,7 +98,7 @@ class BetHistory(Base):
 
     __table_args__ = (
         UniqueConstraint("kickoff", "home_team", "away_team", "outcome",
-                         name="uq_bet_history"),
+                         name="uq_signal_history"),
     )
 
 
@@ -111,21 +111,21 @@ def init_db(db_path: str):
         conn.execute(text("PRAGMA journal_mode=WAL"))
         for col_ddl in [
             "ALTER TABLE matches ADD COLUMN stage TEXT",
-            "ALTER TABLE bet_history ADD COLUMN home_rank INTEGER",
-            "ALTER TABLE bet_history ADD COLUMN away_rank INTEGER",
-            "ALTER TABLE bet_history ADD COLUMN home_form TEXT",
-            "ALTER TABLE bet_history ADD COLUMN away_form TEXT",
-            "ALTER TABLE bet_history ADD COLUMN home_crest TEXT",
-            "ALTER TABLE bet_history ADD COLUMN away_crest TEXT",
-            "ALTER TABLE bet_history ADD COLUMN home_rest_days INTEGER",
-            "ALTER TABLE bet_history ADD COLUMN away_rest_days INTEGER",
-            "ALTER TABLE bet_history ADD COLUMN h2h_used BOOLEAN",
-            "ALTER TABLE bet_history ADD COLUMN is_second_leg BOOLEAN",
-            "ALTER TABLE bet_history ADD COLUMN agg_home INTEGER",
-            "ALTER TABLE bet_history ADD COLUMN agg_away INTEGER",
-            "ALTER TABLE bet_history ADD COLUMN leg1_result TEXT",
+            "ALTER TABLE signal_history ADD COLUMN home_rank INTEGER",
+            "ALTER TABLE signal_history ADD COLUMN away_rank INTEGER",
+            "ALTER TABLE signal_history ADD COLUMN home_form TEXT",
+            "ALTER TABLE signal_history ADD COLUMN away_form TEXT",
+            "ALTER TABLE signal_history ADD COLUMN home_crest TEXT",
+            "ALTER TABLE signal_history ADD COLUMN away_crest TEXT",
+            "ALTER TABLE signal_history ADD COLUMN home_rest_days INTEGER",
+            "ALTER TABLE signal_history ADD COLUMN away_rest_days INTEGER",
+            "ALTER TABLE signal_history ADD COLUMN h2h_used BOOLEAN",
+            "ALTER TABLE signal_history ADD COLUMN is_second_leg BOOLEAN",
+            "ALTER TABLE signal_history ADD COLUMN agg_home INTEGER",
+            "ALTER TABLE signal_history ADD COLUMN agg_away INTEGER",
+            "ALTER TABLE signal_history ADD COLUMN leg1_result TEXT",
             "ALTER TABLE odds ADD COLUMN totals_line REAL",
-            "ALTER TABLE bet_history ADD COLUMN bookmaker_link TEXT",
+            "ALTER TABLE signal_history ADD COLUMN bookmaker_link TEXT",
         ]:
             try:
                 conn.execute(text(col_ddl))

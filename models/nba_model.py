@@ -211,10 +211,10 @@ def evaluate_nba_match(
     away_rest_days: int | None = None,
 ) -> list[dict]:
     """
-    Evaluates a single NBA matchup and returns a list of value bet dicts.
+    Evaluates a single NBA matchup and returns a list of signal dicts.
 
     Returns [] when either team has insufficient game history.
-    Each bet dict mirrors the structure used by tennis / football:
+    Each signal dict mirrors the structure used by tennis / football:
         {outcome, outcome_label, odds, true_prob, ev}
     """
     h_n = home_ratings.get("n_games", 0)
@@ -267,7 +267,7 @@ def evaluate_nba_match(
         p_over  = float(norm.sf(totals_line, loc=t_mu, scale=t_std))
         p_under = 1.0 - p_over
 
-        # Whole-number lines aren't available in the app; we always bet the
+        # Whole-number lines aren't available in the app; we always use the
         # nearest half-point: Over 234.0 → Over 233.5, Under 234.0 → Under 234.5.
         over_line  = (totals_line - 0.5) if totals_line == int(totals_line) else totals_line
         under_line = (totals_line + 0.5) if totals_line == int(totals_line) else totals_line

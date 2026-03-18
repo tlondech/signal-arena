@@ -1,11 +1,11 @@
 import { state } from "./state.js";
-import { fetchBets, fetchHistoryPage } from "./api.js";
+import { fetchSignals, fetchHistoryPage } from "./api.js";
 import {
   relativeDate,
   setMainTab,
   showLoading,
   showError,
-  renderBetsPanel,
+  renderSignalsPanel,
   renderHistory,
   updateFilterUI,
   updateFilterBadge,
@@ -38,8 +38,8 @@ export async function refreshData() {
     state.historyLoaded   = [];
     state.historyFetching = false;
 
-    const [betsResult, histResult] = await Promise.all([fetchBets(), fetchHistoryPage(0)]);
-    state.betsData      = betsResult;
+    const [signalsResult, histResult] = await Promise.all([fetchSignals(), fetchHistoryPage(0)]);
+    state.signalsData   = signalsResult;
     state.historyTotal  = histResult.count;
     state.historyLoaded = histResult.data;
     state.histData      = state.historyLoaded;
@@ -48,7 +48,7 @@ export async function refreshData() {
     const sentinel = document.getElementById("history-sentinel");
     if (state.historyObserver && sentinel) state.historyObserver.observe(sentinel);
 
-    const allRows = [...state.betsData, ...state.histData];
+    const allRows = [...state.signalsData, ...state.histData];
     const latestRun = allRows.length
       ? new Date(Math.max(...allRows.map(r => new Date(r.created_at))))
       : new Date();
@@ -58,7 +58,7 @@ export async function refreshData() {
 
     // Render whichever panel is currently visible
     if (state.mainTab === "history") renderHistory();
-    else renderBetsPanel();
+    else renderSignalsPanel();
 
     updateHistoryCountUI();
   } catch (err) {
@@ -187,7 +187,7 @@ async function init() {
     document.getElementById("account-dropdown")?.remove();
   });
 
-  setMainTab("bets");
+  setMainTab("signals");
 
   if (fromCheckout) {
     const banner = document.getElementById("welcome-banner");
@@ -198,16 +198,16 @@ async function init() {
     }
   }
 
-  // ── Smart Betting onboarding modal (shown once per user) ──────
-  if (!localStorage.getItem("smart_betting_ack")) {
-    const modal = document.getElementById("smart-betting-modal");
+  // ── Smart Signal onboarding modal (shown once per user) ───────
+  if (!localStorage.getItem("smart_signal_ack")) {
+    const modal = document.getElementById("smart-signal-modal");
     if (modal) {
       modal.classList.remove("hidden");
       // Block Escape — modal is intentionally un-skippable
       const blockEsc = e => { if (e.key === "Escape") e.stopImmediatePropagation(); };
       document.addEventListener("keydown", blockEsc, true);
       document.getElementById("smart-modal-ack")?.addEventListener("click", () => {
-        localStorage.setItem("smart_betting_ack", "1");
+        localStorage.setItem("smart_signal_ack", "1");
         modal.classList.add("hidden");
         document.removeEventListener("keydown", blockEsc, true);
       }, { once: true });
@@ -231,15 +231,15 @@ async function init() {
 
   // Clear filters (desktop)
   document.getElementById("clear-filters-btn").addEventListener("click", () => {
-    state.activeLeague   = "all";
-    state.activeBetType  = "all";
-    state.teamSearch     = "";
-    state.activeDateBets = "all";
-    state.activeDateHist = "all";
+    state.activeLeague      = "all";
+    state.activeSignalType  = "all";
+    state.teamSearch        = "";
+    state.activeDateSignals = "all";
+    state.activeDateHist    = "all";
     document.getElementById("team-search").value = "";
     document.getElementById("team-search-mobile").value = "";
     updateFilterUI();
-    renderBetsPanel();
+    renderSignalsPanel();
     resetHistoryPagination();
   });
 
@@ -256,15 +256,15 @@ async function init() {
   document.getElementById("burger-btn").addEventListener("click", openBurgerDrawer);
   document.getElementById("burger-drawer-close").addEventListener("click", closeBurgerDrawer);
   document.getElementById("burger-reset-btn").addEventListener("click", () => {
-    state.activeLeague   = "all";
-    state.activeBetType  = "all";
-    state.teamSearch     = "";
-    state.activeDateBets = "all";
-    state.activeDateHist = "all";
+    state.activeLeague      = "all";
+    state.activeSignalType  = "all";
+    state.teamSearch        = "";
+    state.activeDateSignals = "all";
+    state.activeDateHist    = "all";
     document.getElementById("team-search").value = "";
     document.getElementById("team-search-mobile").value = "";
     updateFilterUI();
-    renderBetsPanel();
+    renderSignalsPanel();
     resetHistoryPagination();
     closeBurgerDrawer();
   });
@@ -285,16 +285,16 @@ async function init() {
   });
   document.querySelectorAll(".sport-pop-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      state.activeSport   = btn.dataset.sport;
-      state.activeLeague  = "all";
-      state.activeBetType = "all";
-      state.teamSearch    = "";
+      state.activeSport      = btn.dataset.sport;
+      state.activeLeague     = "all";
+      state.activeSignalType = "all";
+      state.teamSearch       = "";
       document.getElementById("team-search").value = "";
       document.getElementById("team-search-mobile").value = "";
       sportPopover.classList.add("hidden");
       sportNavBtn.setAttribute("aria-expanded", "false");
       updateFilterUI();
-      renderBetsPanel();
+      renderSignalsPanel();
       resetHistoryPagination();
     });
   });
@@ -309,7 +309,7 @@ async function init() {
   document.getElementById("team-search").addEventListener("input", e => {
     state.teamSearch = e.target.value.trim();
     updateFilterBadge();
-    renderBetsPanel();
+    renderSignalsPanel();
     resetHistoryPagination();
   });
 
@@ -318,23 +318,23 @@ async function init() {
     state.teamSearch = e.target.value.trim();
     document.getElementById("team-search").value = state.teamSearch;
     updateFilterBadge();
-    renderBetsPanel();
+    renderSignalsPanel();
     resetHistoryPagination();
   });
 
   // Chip remove (delegated on both chip containers)
   function removeFilterChip(key) {
-    if (key === "league")   { state.activeLeague   = "all"; }
-    if (key === "bettype")  { state.activeBetType  = "all"; }
-    if (key === "team")     {
+    if (key === "league")      { state.activeLeague      = "all"; }
+    if (key === "signaltype")  { state.activeSignalType  = "all"; }
+    if (key === "team")        {
       state.teamSearch = "";
       document.getElementById("team-search").value = "";
       document.getElementById("team-search-mobile").value = "";
     }
-    if (key === "datebets") { state.activeDateBets = "all"; }
-    if (key === "datehist") { state.activeDateHist = "all"; }
+    if (key === "datesignals") { state.activeDateSignals = "all"; }
+    if (key === "datehist")    { state.activeDateHist    = "all"; }
     updateFilterUI();
-    renderBetsPanel();
+    renderSignalsPanel();
     resetHistoryPagination();
   }
   ["active-filter-chips", "active-filter-chips-mobile"].forEach(id => {

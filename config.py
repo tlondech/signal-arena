@@ -75,7 +75,7 @@ class Config:
     # API credentials
     odds_api_key: str
     fdo_api_key: str = ""              # football-data.org key; required if any fdo_code league is enabled
-    news_api_key: str = ""             # NewsAPI key; optional — enables team news context for EV ≥ 20% bets
+    news_api_key: str = ""             # NewsAPI key; optional — enables team news context for EV ≥ 20% signals
 
     # Leagues to process in this run
     enabled_leagues: list[LeagueConfig] = field(default_factory=lambda: list(LEAGUES))
@@ -93,7 +93,7 @@ class Config:
 
     # NBA team ratings — computed once per run in main.py
     nba_ratings: dict = field(default_factory=dict)
-    nba_min_games: int = 10          # minimum games required for a team to generate bets
+    nba_min_games: int = 10          # minimum games required for a team to generate signals
     nba_home_advantage: float = 3.5  # home court advantage in points
     nba_spread_std: float = 15.5     # std dev of point differential (Normal dist)
     nba_total_std: float = 19.0      # std dev of total points (Normal dist)
@@ -104,10 +104,10 @@ class Config:
     rolling_window: int = 5
     max_prob_ratio: float = 1.3        # max model_prob / implied_prob; UCL uses 1.4
     tennis_max_prob_ratio: float = 1.5 # looser cap for tennis Elo (less data history than football)
-    tennis_min_matches: int = 10       # min historical matches required for a player to generate bets
+    tennis_min_matches: int = 10       # min historical matches required for a player to generate signals
 
     # Paths
-    db_path: str = "data/bets.db"
+    db_path: str = "data/signals.db"
     team_map_path: str = "data/team_name_map.json"
     football_crest_map_path: str = "data/football_crest_map.json"
     tennis_crest_map_path: str = "data/tennis_crest_map.json"

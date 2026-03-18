@@ -1,10 +1,10 @@
 import { sb } from "./config.js";
 import { state } from "./state.js";
 
-// ── Fetch upcoming (unsettled) bets ────────────────────────────
-export async function fetchBets() {
+// ── Fetch upcoming (unsettled) signals ──────────────────────────
+export async function fetchSignals() {
   const { data, error } = await sb
-    .from("bet_history")
+    .from("signal_history")
     .select("*")
     .eq("settled", false)
     .order("kickoff", { ascending: true });
@@ -18,7 +18,7 @@ export async function fetchHistoryPage(page = 0) {
   const to   = from + state.HISTORY_PAGE_SIZE - 1;
 
   let q = sb
-    .from("bet_history")
+    .from("signal_history")
     .select("*", { count: "exact" })
     .eq("settled", true)
     .order("kickoff", { ascending: false })
@@ -26,9 +26,9 @@ export async function fetchHistoryPage(page = 0) {
 
   q = q.eq("sport", state.activeSport);
 
-  if (state.activeLeague  !== "all") q = q.eq("league_key", state.activeLeague);
-  if (state.activeBetType !== "all") q = q.eq("outcome",    state.activeBetType);
-  if (state.teamSearch)              q = q.or(`home_team.ilike.%${state.teamSearch}%,away_team.ilike.%${state.teamSearch}%`);
+  if (state.activeLeague     !== "all") q = q.eq("league_key", state.activeLeague);
+  if (state.activeSignalType !== "all") q = q.eq("outcome",    state.activeSignalType);
+  if (state.teamSearch)                 q = q.or(`home_team.ilike.%${state.teamSearch}%,away_team.ilike.%${state.teamSearch}%`);
 
   if (state.activeDateHist !== "all") {
     const days  = state.activeDateHist === "7d" ? 7 : state.activeDateHist === "30d" ? 30 : 90;

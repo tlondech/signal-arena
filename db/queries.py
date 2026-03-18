@@ -11,7 +11,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from constants import FIXTURE_DATE_TOLERANCE_DAYS, H2H_LOOKBACK_SEASONS
-from db.schema import BetHistory, Fixture, Match, Odds
+from db.schema import SignalHistory, Fixture, Match, Odds
 
 logger = logging.getLogger(__name__)
 
@@ -214,70 +214,70 @@ def load_all_fixtures_df(engine, universal_names: dict | None = None):
 
 
 # ---------------------------------------------------------------------------
-# Bet history helpers
+# Signal history helpers
 # ---------------------------------------------------------------------------
 
-def prune_stale_bets(
+def prune_stale_signals(
     session,
-    all_value_bets: list[dict],
+    all_signals: list[dict],
     processed_league_keys: set[str],
 ) -> int:
     """
-    Deletes unsettled future bets for processed leagues whose outcome is no
-    longer in the current recommended set (e.g. filtered by the ratio cap or
+    Deletes unsettled future signals for processed leagues whose outcome is no
+    longer in the current detected set (e.g. filtered by the ratio cap or
     market-group deduplication). Scoped to processed leagues only so partial
-    runs don't wipe bets from leagues not evaluated this time.
+    runs don't wipe signals from leagues not evaluated this time.
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     current_keys: set[tuple] = set()
-    for m in all_value_bets:
+    for m in all_signals:
         kickoff_dt = datetime.fromisoformat(m["kickoff"]).replace(tzinfo=None)
-        for b in m["bets"]:
-            current_keys.add((kickoff_dt, m["home_team"], m["away_team"], b["outcome"]))
+        for s in m["signals"]:
+            current_keys.add((kickoff_dt, m["home_team"], m["away_team"], s["outcome"]))
 
     unsettled = (
-        session.query(BetHistory)
+        session.query(SignalHistory)
         .filter(
-            BetHistory.settled == False,
-            BetHistory.kickoff > now,
-            BetHistory.league_key.in_(processed_league_keys),
+            SignalHistory.settled == False,
+            SignalHistory.kickoff > now,
+            SignalHistory.league_key.in_(processed_league_keys),
         )
         .all()
     )
 
     pruned = 0
-    for bet in unsettled:
-        if (bet.kickoff, bet.home_team, bet.away_team, bet.outcome) not in current_keys:
-            session.delete(bet)
+    for row in unsettled:
+        if (row.kickoff, row.home_team, row.away_team, row.outcome) not in current_keys:
+            session.delete(row)
             pruned += 1
 
     return pruned
 
 
-def save_bets_to_history(session, match_bets_list: list[dict], recorded_date: str) -> int:
+def save_signals_to_history(session, match_signals_list: list[dict], recorded_date: str) -> int:
     """
-    Persists each recommended bet in match_bets_list to bet_history.
+    Persists each detected signal in match_signals_list to signal_history.
     Skips duplicates (same kickoff + teams + outcome already exists).
     Returns the number of newly inserted rows.
     """
     inserted = 0
-    for m in match_bets_list:
+    for m in match_signals_list:
         kickoff_dt = datetime.fromisoformat(m["kickoff"]).replace(tzinfo=None)
         home_c = m.get("home_canonical")
         away_c = m.get("away_canonical")
-        for b in m["bets"]:
-            exists = session.query(BetHistory).filter_by(
+        for s in m["signals"]:
+            exists = session.query(SignalHistory).filter_by(
                 kickoff=kickoff_dt,
                 home_team=m["home_team"],
                 away_team=m["away_team"],
-                outcome=b["outcome"],
+                outcome=s["outcome"],
             ).first()
             if exists:
                 if not exists.settled:
-                    exists.odds          = b["odds"]
-                    exists.true_prob     = b["true_prob"]
-                    exists.ev            = b["ev"]
+                    exists.odds          = s["odds"]
+                    exists.true_prob     = s["true_prob"]
+                    exists.ev            = s["ev"]
                     exists.home_rank     = m.get("home_rank")
                     exists.away_rank     = m.get("away_rank")
                     exists.home_form     = json.dumps(m["home_form"]) if m.get("home_form") is not None else None
@@ -293,7 +293,7 @@ def save_bets_to_history(session, match_bets_list: list[dict], recorded_date: st
                     exists.leg1_result     = json.dumps(m["leg1_result"]) if m.get("leg1_result") is not None else None
                     exists.bookmaker_link  = m.get("bookmaker_link")
                 continue
-            session.add(BetHistory(
+            session.add(SignalHistory(
                 recorded_date=recorded_date,
                 league_key=m["league_key"],
                 league_name=m["league_name"],
@@ -303,11 +303,11 @@ def save_bets_to_history(session, match_bets_list: list[dict], recorded_date: st
                 away_canonical=away_c,
                 kickoff=kickoff_dt,
                 stage=m.get("stage"),
-                outcome=b["outcome"],
-                outcome_label=b["outcome_label"],
-                odds=b["odds"],
-                true_prob=b["true_prob"],
-                ev=b["ev"],
+                outcome=s["outcome"],
+                outcome_label=s["outcome_label"],
+                odds=s["odds"],
+                true_prob=s["true_prob"],
+                ev=s["ev"],
                 home_rank=m.get("home_rank"),
                 away_rank=m.get("away_rank"),
                 home_form=json.dumps(m["home_form"]) if m.get("home_form") is not None else None,
@@ -327,24 +327,24 @@ def save_bets_to_history(session, match_bets_list: list[dict], recorded_date: st
     return inserted
 
 
-def settle_bets(session) -> int:
+def settle_signals(session) -> int:
     """
-    Resolves unsettled bets whose kickoff is in the past by matching
-    results from the Fixture table. Returns the number of newly settled bets.
+    Resolves unsettled signals whose kickoff is in the past by matching
+    results from the Fixture table. Returns the number of newly settled signals.
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC for SQLite comparison
-    unsettled = session.query(BetHistory).filter(
-        BetHistory.settled == False,  # noqa: E712
-        BetHistory.kickoff < now,
+    unsettled = session.query(SignalHistory).filter(
+        SignalHistory.settled == False,  # noqa: E712
+        SignalHistory.kickoff < now,
     ).all()
 
     settled_count = 0
-    for bet in unsettled:
+    for row in unsettled:
         fixture = session.query(Fixture).filter(
-            Fixture.home_team == bet.home_canonical,
-            Fixture.away_team == bet.away_canonical,
-            Fixture.fixture_date >= bet.kickoff - timedelta(days=FIXTURE_DATE_TOLERANCE_DAYS),
-            Fixture.fixture_date <= bet.kickoff + timedelta(days=FIXTURE_DATE_TOLERANCE_DAYS),
+            Fixture.home_team == row.home_canonical,
+            Fixture.away_team == row.away_canonical,
+            Fixture.fixture_date >= row.kickoff - timedelta(days=FIXTURE_DATE_TOLERANCE_DAYS),
+            Fixture.fixture_date <= row.kickoff + timedelta(days=FIXTURE_DATE_TOLERANCE_DAYS),
         ).first()
 
         if fixture is None:
@@ -355,23 +355,23 @@ def settle_bets(session) -> int:
             "home_win": hg > ag,
             "draw":     hg == ag,
             "away_win": ag > hg,
-        }.get(bet.outcome)
+        }.get(row.outcome)
         if won is None:
-            won = _settle_totals(bet.outcome, hg, ag) or False
+            won = _settle_totals(row.outcome, hg, ag) or False
 
-        bet.settled = True
-        bet.result = "won" if won else "lost"
-        bet.actual_home_goals = hg
-        bet.actual_away_goals = ag
-        bet.settled_at = now
+        row.settled = True
+        row.result = "won" if won else "lost"
+        row.actual_home_goals = hg
+        row.actual_away_goals = ag
+        row.settled_at = now
         settled_count += 1
 
     return settled_count
 
 
-def load_bet_history(session) -> list[dict]:
-    """Returns all bet history rows as dicts, ordered newest first."""
-    rows = session.query(BetHistory).order_by(BetHistory.kickoff.desc()).all()
+def load_signal_history(session) -> list[dict]:
+    """Returns all signal history rows as dicts, ordered newest first."""
+    rows = session.query(SignalHistory).order_by(SignalHistory.kickoff.desc()).all()
     return [
         {
             "recorded_date":     r.recorded_date,

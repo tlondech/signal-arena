@@ -107,7 +107,7 @@ def evaluate_tennis_match(
     min_matches: int = 10,
 ) -> list[dict]:
     """
-    Returns a list of value bets for one match.
+    Returns a list of signals for one match.
     Returns [] if either player has no Elo history or too few matches.
     """
     if player1 not in ratings or player2 not in ratings:

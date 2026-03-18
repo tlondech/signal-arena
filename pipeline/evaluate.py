@@ -108,7 +108,7 @@ def evaluate_matches(
     """
     Runs the EV evaluation loop over all non-live upcoming events.
 
-    Returns match_bets dict keyed by (home_winamax, away_winamax, kickoff_iso).
+    Returns match_signals dict keyed by (home_winamax, away_winamax, kickoff_iso).
     """
     rankings = features["rankings"]
     form_map = features["form_map"]
@@ -129,7 +129,7 @@ def evaluate_matches(
     from pipeline.helpers import build_leg2_map
     leg2_map = features.get("leg2_map", {})
 
-    match_bets: dict[tuple, dict] = {}
+    match_signals: dict[tuple, dict] = {}
     n_skipped = 0
     for event in upcoming_events:
         home_winamax = event["home_team"]
@@ -201,7 +201,7 @@ def evaluate_matches(
             rho=dc_params["rho"] if dc_params is not None else 0.0,
         )
 
-        if not result["value_bets"]:
+        if not result["signals"]:
             continue
 
         over_key  = result["over_key"]
@@ -215,8 +215,8 @@ def evaluate_matches(
         }
         kickoff_iso = event["commence_time"].isoformat()
         key = (home_winamax, away_winamax, kickoff_iso)
-        if key not in match_bets:
-            match_bets[key] = {
+        if key not in match_signals:
+            match_signals[key] = {
                 "league_key":    league.key,
                 "league_name":   league.display_name,
                 "home_team":     home_winamax,
@@ -240,7 +240,7 @@ def evaluate_matches(
                 "home_canonical":  home_canonical,
                 "away_canonical":  away_canonical,
                 "bookmaker_link":  event.get("bookmaker_link"),
-                "bets":           [],
+                "signals":        [],
             }
 
         _market_groups = [
@@ -248,22 +248,22 @@ def evaluate_matches(
             {"over_2_5", "under_2_5"},
         ]
         ratio_cap = UCL_PROB_RATIO_CAP if league.key == "ucl" else cfg.max_prob_ratio
-        filtered_value_bets = []
+        filtered_signals = []
         for group in _market_groups:
             candidates = [
-                o for o in result["value_bets"]
+                o for o in result["signals"]
                 if o in group
                 and outcome_map[o][1] is not None
                 and outcome_map[o][0] * outcome_map[o][1] <= ratio_cap
             ]
             if candidates:
-                filtered_value_bets.append(max(candidates, key=lambda o: outcome_map[o][2]))
+                filtered_signals.append(max(candidates, key=lambda o: outcome_map[o][2]))
 
-        for outcome in filtered_value_bets:
+        for outcome in filtered_signals:
             true_prob, odds, ev = outcome_map[outcome]
             if odds is None:
                 continue
-            match_bets[key]["bets"].append({
+            match_signals[key]["signals"].append({
                 "outcome":       outcome,
                 "outcome_label": get_outcome_label(outcome),
                 "odds":          odds,
@@ -274,13 +274,13 @@ def evaluate_matches(
     if n_skipped:
         logger.debug("[%s] %d match(es) skipped during evaluation.", league.key, n_skipped)
 
-    return match_bets, n_skipped
+    return match_signals, n_skipped
 
 
-def enrich_with_news(value_bets: list[dict], cfg) -> None:
+def enrich_with_news(signals: list[dict], cfg) -> None:
     """
     Fetches team news for high-EV matches within 24h of kickoff.
-    Mutates value_bets in place.
+    Mutates signals in place.
     """
     if not cfg.news_api_key:
         return
@@ -289,8 +289,8 @@ def enrich_with_news(value_bets: list[dict], cfg) -> None:
     from extractors.team_news import fetch_team_news
 
     now_utc = datetime.now(timezone.utc)
-    for match in value_bets:
-        if not any(b["ev"] >= EV_NEWS_THRESHOLD for b in match["bets"]):
+    for match in signals:
+        if not any(b["ev"] >= EV_NEWS_THRESHOLD for b in match["signals"]):
             continue
         kickoff = datetime.fromisoformat(match["kickoff"])
         if kickoff.tzinfo is None:
@@ -309,6 +309,6 @@ def enrich_with_news(value_bets: list[dict], cfg) -> None:
                 "[%s] Fetched team news for %s vs %s (EV %.0f%%, kickoff in %.1fh)",
                 match["league_name"],
                 match["home_team"], match["away_team"],
-                max(b["ev"] for b in match["bets"]) * 100,
+                max(b["ev"] for b in match["signals"]) * 100,
                 hours_until_kickoff,
             )

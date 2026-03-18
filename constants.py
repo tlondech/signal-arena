@@ -2,7 +2,7 @@
 # Team news enrichment
 # ---------------------------------------------------------------------------
 
-# Minimum EV for a bet to trigger team news fetching
+# Minimum EV for a signal to trigger team news fetching
 EV_NEWS_THRESHOLD = 0.20
 
 # Hours before kickoff within which team news is fetched
@@ -100,10 +100,10 @@ LAMBDA_MAX = 6.0
 
 
 # ---------------------------------------------------------------------------
-# EV evaluation & bet filtering
+# EV evaluation & signal filtering
 # ---------------------------------------------------------------------------
 
-# Minimum EV required to flag a bet as value
+# Minimum EV required to flag a signal as positive
 EV_THRESHOLD = 0.05
 
 # Probability-ratio cap for UCL matches (looser than the default to allow for
@@ -141,7 +141,7 @@ FOOTBALLDATA_ORG_TIMEOUT = 30        # seconds
 # Number of prior seasons (including current) loaded for H2H fixture lookups
 H2H_LOOKBACK_SEASONS = 3
 
-# Tolerance when matching a fixture to a bet by date (used in SQLite settlement)
+# Tolerance when matching a fixture to a signal by date (used in SQLite settlement)
 FIXTURE_DATE_TOLERANCE_DAYS = 1
 
 # Same tolerance expressed in seconds (used in Supabase settlement)

@@ -1,6 +1,6 @@
 # Value Bet Finder — Football, Tennis & Basketball
 
-A statistical betting recommendation engine that identifies value bets across professional football, tennis, and NBA basketball. It fetches live odds from The Odds API (Winamax lines), models outcomes using sport-specific predictive models, and surfaces bets where the bookmaker's implied probability is lower than the model's estimate.
+A statistical signal engine that identifies value bets across professional football, tennis, and NBA basketball. It fetches live odds from The Odds API (Winamax lines), models outcomes using sport-specific predictive models, and surfaces bets where the bookmaker's implied probability is lower than the model's estimate.
 
 ## How It Works
 
@@ -114,7 +114,7 @@ The report opens automatically in your browser.
 
 ## Automated Daily Updates
 
-A GitHub Actions workflow (`.github/workflows/daily_update.yml`) runs `python main.py --fetch` five times a day at **10:07, 13:07, 16:07, 19:07, and 22:07 UTC** (every 3 hours). It writes bet recommendations directly to Supabase; the frontend reads from Supabase at load time, so no file is committed on each run.
+A GitHub Actions workflow (`.github/workflows/daily_update.yml`) runs `python main.py --fetch` five times a day at **10:07, 13:07, 16:07, 19:07, and 22:07 UTC** (every 3 hours). It writes signals directly to Supabase; the frontend reads from Supabase at load time, so no file is committed on each run.
 
 The only files the workflow ever commits are the three crest map JSONs (`data/football_crest_map.json`, `data/tennis_crest_map.json`, `data/nba_crest_map.json`) — and only when they actually change (new teams or players detected).
 

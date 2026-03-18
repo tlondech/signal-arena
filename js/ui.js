@@ -79,7 +79,7 @@ export const SPORTS = [
   { key: "tennis",     label: "🎾 Tennis" },
 ];
 export const SPORT_EMOJI = { football: "⚽️", basketball: "🏀", tennis: "🎾" };
-export const BET_TYPES = {
+export const SIGNAL_TYPES = {
   football: [
     { key: "all",      label: "All Types" },
     { key: "home_win", label: "Home Win" },
@@ -98,7 +98,7 @@ export const BET_TYPES = {
     { key: "spread_away_", label: "Spread (Away)" },
   ],
 };
-const DATE_RANGES_BETS = [
+const DATE_RANGES_SIGNALS = [
   { key: "all",      label: "All" },
   { key: "today",    label: "Today" },
   { key: "tomorrow", label: "Tomorrow" },
@@ -111,12 +111,12 @@ const DATE_RANGES_HIST = [
   { key: "3m",  label: "Last 3 months" },
 ];
 const HIST_COLS = [
-  { key: "kickoff",       label: "Date",   render: r => { const d = new Date(r.kickoff); const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; const date = d.toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: tz }); const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: tz }); return `<span class="whitespace-nowrap leading-tight">${esc(date)}<br><span class="text-gray-400 dark:text-gray-500 text-xs">${esc(time)}</span></span>`; } },
+  { key: "kickoff",       label: "Date",   sortable: true, render: r => { const d = new Date(r.kickoff); const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; const date = d.toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: tz }); const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: tz }); return `<span class="whitespace-nowrap leading-tight">${esc(date)}<br><span class="text-gray-400 dark:text-gray-500 text-xs">${esc(time)}</span></span>`; } },
   { key: "league_name",   label: "League", render: r => `<span class="whitespace-nowrap">${leagueBadge(r.league_key, LEAGUE_SHORT_NAMES[r.league_key] || r.league_name)}</span>` },
   { key: "home_team",     label: "Match",  render: r => `<span class="whitespace-nowrap">${esc(r.home_team)} <span class="text-gray-400 mx-0.5">v</span> ${esc(r.away_team)}</span>` },
-  { key: "outcome_label", label: "Selection",   labelHtml: `Selection${infoIcon("Highest-EV outcome identified by the model")}`, render: r => `<span class="whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium ${betBadgeCls(r.result, true)}">${esc(r.outcome_label)}</span>` },
+  { key: "outcome_label", label: "Selection",   labelHtml: `Selection${infoIcon("Highest-EV outcome identified by the model")}`, render: r => `<span class="whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium ${signalBadgeCls(r.result, true)}">${esc(r.outcome_label)}</span>` },
   { key: "_score",        label: "Score",  render: r => r.actual_home_goals != null ? `${r.actual_home_goals}–${r.actual_away_goals}` : "—", sortKey: "actual_home_goals", align: "center" },
-  { key: "odds",          label: "Odds",   labelHtml: `Odds${infoIcon("Decimal odds at time of recommendation")}`,  render: r => `<span class="font-mono">${Number(r.odds).toFixed(2)}</span>`, align: "right" },
+  { key: "odds",          label: "Odds",   labelHtml: `Odds${infoIcon("Decimal odds at time of signal detection")}`,  render: r => `<span class="font-mono">${Number(r.odds).toFixed(2)}</span>`, align: "right" },
   { key: "true_prob",     label: "Prob%",  labelHtml: `Prob%${infoIcon("Model's estimated win probability")}`, render: r => `${(r.true_prob * 100).toFixed(1)}%`, align: "right" },
   { key: "ev",            label: "EV%",    labelHtml: `EV%${infoIcon("Expected value — edge over the bookmaker")}`,  render: r => evLabel(r.ev), align: "right" },
 ];
@@ -144,7 +144,7 @@ function formBubbles(form) {
     return `<span class="${cls} inline-block w-2.5 h-2.5 rounded-full" title="${r}"></span>`;
   }).join("");
 }
-function betBadgeCls(result, colored) {
+function signalBadgeCls(result, colored) {
   if (!colored) return "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300";
   if (result === "won")  return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
   if (result === "lost") return "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300";
@@ -183,10 +183,10 @@ export function groupIntoMatches(rows) {
         leg1_result:    row.leg1_result,
         team_news:      row.team_news || null,
         bookmaker_link: row.bookmaker_link || null,
-        bets: [],
+        signals: [],
       });
     }
-    map.get(key).bets.push({
+    map.get(key).signals.push({
       outcome:       row.outcome,
       outcome_label: row.outcome_label,
       odds:          row.odds,
@@ -225,10 +225,10 @@ function groupHistoryIntoMatches(rows) {
         agg_away:          row.agg_away,
         actual_home_goals: row.actual_home_goals,
         actual_away_goals: row.actual_away_goals,
-        bets: [],
+        signals: [],
       });
     }
-    map.get(key).bets.push({
+    map.get(key).signals.push({
       outcome:       row.outcome,
       outcome_label: row.outcome_label,
       odds:          row.odds,
@@ -242,7 +242,7 @@ function groupHistoryIntoMatches(rows) {
 
 // ── Team news context panel ────────────────────────────────────
 function teamNewsPanel(m) {
-  const hasHighEV = m.bets.some(b => b.ev >= 0.20);
+  const hasHighEV = m.signals.some(s => s.ev >= 0.20);
   if (!hasHighEV || !m.team_news) return "";
   const tn = m.team_news;
   return `
@@ -302,7 +302,7 @@ export function renderCard(m, opts = {}) {
       : `<span class="text-sm font-bold tabular-nums">${m.actual_home_goals}–${m.actual_away_goals}</span>`;
   }
 
-  const betLabel = b => {
+  const signalLabel = b => {
     if (isBasketball && m.handicap_line != null) {
       const sign = m.handicap_line > 0 ? "+" : "";
       return `${esc(b.outcome_label)} (${sign}${m.handicap_line})`;
@@ -310,10 +310,10 @@ export function renderCard(m, opts = {}) {
     return esc(b.outcome_label);
   };
 
-  const betsRows = m.bets.map(b => `
+  const signalsRows = m.signals.map(b => `
     <tr class="border-t border-gray-100 dark:border-gray-700/50">
       <td class="py-1.5 pr-2">
-        <div class="max-w-full"><span class="inline-block max-w-full truncate px-2 py-0.5 rounded-full text-xs font-medium align-middle ${betBadgeCls(b.result, showResult)}">${betLabel(b)}</span></div>
+        <div class="max-w-full"><span class="inline-block max-w-full truncate px-2 py-0.5 rounded-full text-xs font-medium align-middle ${signalBadgeCls(b.result, showResult)}">${signalLabel(b)}</span></div>
       </td>
       <td class="py-1.5 pr-2 text-right font-mono text-sm">${Number(b.odds).toFixed(2)}</td>
       <td class="py-1.5 pr-2 text-right text-sm text-gray-500 dark:text-gray-400">${(b.true_prob * 100).toFixed(1)}%</td>
@@ -376,7 +376,7 @@ export function renderCard(m, opts = {}) {
             <th class="pb-1 text-right font-medium"><span class="inline-flex items-center justify-end">EV${infoIcon("Expected value — gain per €1 staked if the model is right. Green = good value, yellow/red = high edge, verify odds first")}</span></th>
           </tr>
         </thead>
-        <tbody>${betsRows}</tbody>
+        <tbody>${signalsRows}</tbody>
       </table>
     </div>
     ${teamNewsPanel(m)}
@@ -400,11 +400,11 @@ export function renderSportPills() {
     btn.addEventListener("click", () => {
       state.activeSport   = btn.dataset.sport;
       state.activeLeague  = "all";
-      state.activeBetType = "all";
+      state.activeSignalType = "all";
       state.teamSearch    = "";
       document.getElementById("team-search").value = "";
       updateFilterUI();
-      renderBetsPanel();
+      renderSignalsPanel();
       resetHistoryPagination();
     });
   });
@@ -445,7 +445,7 @@ export function renderLeaguePills(matches) {
     btn.addEventListener("click", () => {
       state.activeLeague = btn.dataset.league;
       updateFilterUI();
-      renderBetsPanel();
+      renderSignalsPanel();
       resetHistoryPagination();
     });
   });
@@ -456,11 +456,11 @@ export function renderDatePills() {
   const active   = "bg-indigo-600 text-white";
   const inactive = "border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400";
 
-  document.getElementById("date-bets-pills").innerHTML = DATE_RANGES_BETS.map(t =>
-    `<button class="date-bets-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeDateBets === t.key ? active : inactive}" data-range="${t.key}">${t.label}</button>`
+  document.getElementById("date-signals-pills").innerHTML = DATE_RANGES_SIGNALS.map(t =>
+    `<button class="date-signals-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeDateSignals === t.key ? active : inactive}" data-range="${t.key}">${t.label}</button>`
   ).join("");
-  document.querySelectorAll(".date-bets-pill").forEach(btn => {
-    btn.addEventListener("click", () => { state.activeDateBets = btn.dataset.range; updateFilterUI(); renderBetsPanel(); });
+  document.querySelectorAll(".date-signals-pill").forEach(btn => {
+    btn.addEventListener("click", () => { state.activeDateSignals = btn.dataset.range; updateFilterUI(); renderSignalsPanel(); });
   });
 
   document.getElementById("date-hist-pills").innerHTML = DATE_RANGES_HIST.map(t =>
@@ -472,26 +472,26 @@ export function renderDatePills() {
 }
 
 // ── Bet-type pills ─────────────────────────────────────────────
-export function renderBetTypePills() {
-  const container = document.getElementById("bet-type-pills");
+export function renderSignalTypePills() {
+  const container = document.getElementById("signal-type-pills");
   const section   = container.closest("div[class]");
-  const types     = BET_TYPES[state.activeSport];
+  const types     = SIGNAL_TYPES[state.activeSport];
   if (!types) {
     section.classList.add("hidden");
-    state.activeBetType = "all";
+    state.activeSignalType = "all";
     return;
   }
   section.classList.remove("hidden");
   const active   = "bg-indigo-600 text-white";
   const inactive = "border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400";
   container.innerHTML = types.map(t =>
-    `<button class="bet-type-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeBetType === t.key ? active : inactive}" data-type="${t.key}">${t.label}</button>`
+    `<button class="signal-type-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeSignalType === t.key ? active : inactive}" data-type="${t.key}">${t.label}</button>`
   ).join("");
-  document.querySelectorAll(".bet-type-pill").forEach(btn => {
+  document.querySelectorAll(".signal-type-pill").forEach(btn => {
     btn.addEventListener("click", () => {
-      state.activeBetType = btn.dataset.type;
+      state.activeSignalType = btn.dataset.type;
       updateFilterUI();
-      renderBetsPanel();
+      renderSignalsPanel();
       resetHistoryPagination();
     });
   });
@@ -508,37 +508,37 @@ export function renderBurgerDrawerPills() {
       btn.addEventListener("click", () => {
         state.activeLeague = btn.dataset.league;
         updateFilterUI();
-        renderBetsPanel();
+        renderSignalsPanel();
         resetHistoryPagination();
         renderBurgerDrawerPills();
       });
     });
   }
   // Bet type
-  const btSrc  = document.getElementById("bet-type-pills");
-  const btDest = document.getElementById("bet-type-pills-mobile");
+  const btSrc  = document.getElementById("signal-type-pills");
+  const btDest = document.getElementById("signal-type-pills-mobile");
   if (btSrc && btDest) {
     btDest.innerHTML = btSrc.innerHTML;
     btDest.querySelectorAll("[data-type]").forEach(btn => {
       btn.addEventListener("click", () => {
-        state.activeBetType = btn.dataset.type;
+        state.activeSignalType = btn.dataset.type;
         updateFilterUI();
-        renderBetsPanel();
+        renderSignalsPanel();
         resetHistoryPagination();
         renderBurgerDrawerPills();
       });
     });
   }
-  // Date (bets)
-  const dbSrc  = document.getElementById("date-bets-pills");
-  const dbDest = document.getElementById("date-bets-pills-mobile");
+  // Date (signals)
+  const dbSrc  = document.getElementById("date-signals-pills");
+  const dbDest = document.getElementById("date-signals-pills-mobile");
   if (dbSrc && dbDest) {
     dbDest.innerHTML = dbSrc.innerHTML;
     dbDest.querySelectorAll("[data-range]").forEach(btn => {
       btn.addEventListener("click", () => {
-        state.activeDateBets = btn.dataset.range;
+        state.activeDateSignals = btn.dataset.range;
         updateFilterUI();
-        renderBetsPanel();
+        renderSignalsPanel();
         renderBurgerDrawerPills();
       });
     });
@@ -558,9 +558,9 @@ export function renderBurgerDrawerPills() {
     });
   }
   // Show correct date section for current tab
-  const dbSection = document.getElementById("date-bets-section-mobile");
+  const dbSection = document.getElementById("date-signals-section-mobile");
   const dhSection = document.getElementById("date-hist-section-mobile");
-  if (dbSection) dbSection.classList.toggle("hidden", state.mainTab !== "bets");
+  if (dbSection) dbSection.classList.toggle("hidden", state.mainTab !== "signals");
   if (dhSection) dhSection.classList.toggle("hidden", state.mainTab !== "history");
 }
 
@@ -568,19 +568,19 @@ export function renderBurgerDrawerPills() {
 export function updateFilterUI() {
   const active = [];
   if (state.activeLeague !== "all") {
-    const row = [...state.betsData, ...state.histData].find(r => r.league_key === state.activeLeague);
+    const row = [...state.signalsData, ...state.histData].find(r => r.league_key === state.activeLeague);
     active.push({ key: "league", label: LEAGUE_SHORT_NAMES[state.activeLeague] || (row ? row.league_name : state.activeLeague) });
   }
-  if (state.activeBetType !== "all") {
-    const bt = (BET_TYPES[state.activeSport] || []).find(t => t.key === state.activeBetType);
-    active.push({ key: "bettype", label: bt ? bt.label : state.activeBetType });
+  if (state.activeSignalType !== "all") {
+    const bt = (SIGNAL_TYPES[state.activeSport] || []).find(t => t.key === state.activeSignalType);
+    active.push({ key: "signaltype", label: bt ? bt.label : state.activeSignalType });
   }
   if (state.teamSearch) {
     active.push({ key: "team", label: `"${state.teamSearch}"` });
   }
-  if (state.activeDateBets !== "all") {
-    const r = DATE_RANGES_BETS.find(t => t.key === state.activeDateBets);
-    active.push({ key: "datebets", label: r ? r.label : state.activeDateBets });
+  if (state.activeDateSignals !== "all") {
+    const r = DATE_RANGES_SIGNALS.find(t => t.key === state.activeDateSignals);
+    active.push({ key: "datesignals", label: r ? r.label : state.activeDateSignals });
   }
   if (state.activeDateHist !== "all") {
     const r = DATE_RANGES_HIST.find(t => t.key === state.activeDateHist);
@@ -612,13 +612,13 @@ export const updateFilterBadge = updateFilterUI;
 
 // ── Main tab switching ─────────────────────────────────────────
 export function setMainTab(tab) {
-  if (tab === "history") state.activeDateBets = "all";
+  if (tab === "history") state.activeDateSignals = "all";
   else                   state.activeDateHist = "all";
 
   state.mainTab = tab;
-  document.getElementById("panel-bets").classList.toggle("hidden", tab !== "bets");
+  document.getElementById("panel-signals").classList.toggle("hidden", tab !== "signals");
   document.getElementById("panel-history").classList.toggle("hidden", tab !== "history");
-  document.getElementById("date-bets-section").classList.toggle("hidden", tab !== "bets");
+  document.getElementById("date-signals-section").classList.toggle("hidden", tab !== "signals");
   document.getElementById("date-hist-section").classList.toggle("hidden", tab !== "history");
 
   document.querySelectorAll(".main-tab-btn").forEach(btn => {
@@ -660,12 +660,12 @@ export function showError(msg) {
   el.classList.remove("hidden");
 }
 
-// ── Render bets panel ──────────────────────────────────────────
-export function renderBetsPanel() {
-  const allMatches = groupIntoMatches(state.betsData).filter(m => m.sport === state.activeSport);
+// ── Render signals panel ───────────────────────────────────────
+export function renderSignalsPanel() {
+  const allMatches = groupIntoMatches(state.signalsData).filter(m => m.sport === state.activeSport);
   renderSportPills();
   renderLeaguePills(allMatches);
-  renderBetTypePills();
+  renderSignalTypePills();
   renderDatePills();
 
   let filtered = allMatches;
@@ -673,10 +673,10 @@ export function renderBetsPanel() {
   if (state.activeLeague !== "all")
     filtered = filtered.filter(m => m.league_key === state.activeLeague);
 
-  if (state.activeBetType !== "all") {
-    const isPrefix = state.activeBetType.endsWith("_");
-    filtered = filtered.filter(m => m.bets.some(b =>
-      isPrefix ? b.outcome.startsWith(state.activeBetType) : b.outcome === state.activeBetType
+  if (state.activeSignalType !== "all") {
+    const isPrefix = state.activeSignalType.endsWith("_");
+    filtered = filtered.filter(m => m.signals.some(b =>
+      isPrefix ? b.outcome.startsWith(state.activeSignalType) : b.outcome === state.activeSignalType
     ));
   }
 
@@ -687,7 +687,7 @@ export function renderBetsPanel() {
     );
   }
 
-  if (state.activeDateBets !== "all") {
+  if (state.activeDateSignals !== "all") {
     const tz       = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const today    = new Date(new Date().toLocaleDateString("en-CA", { timeZone: tz }));
     const tomorrow = new Date(today.getTime() + 864e5);
@@ -695,26 +695,26 @@ export function renderBetsPanel() {
     const weekEnd  = new Date(today.getTime() + 7 * 864e5);
     filtered = filtered.filter(m => {
       const ko = new Date(m.kickoff);
-      if (state.activeDateBets === "today")    return ko >= today    && ko < tomorrow;
-      if (state.activeDateBets === "tomorrow") return ko >= tomorrow && ko < dayAfter;
-      if (state.activeDateBets === "week")     return ko >= today    && ko < weekEnd;
+      if (state.activeDateSignals === "today")    return ko >= today    && ko < tomorrow;
+      if (state.activeDateSignals === "tomorrow") return ko >= tomorrow && ko < dayAfter;
+      if (state.activeDateSignals === "week")     return ko >= today    && ko < weekEnd;
       return true;
     });
   }
 
-  if (state.activeBetType !== "all") {
-    const isPrefix = state.activeBetType.endsWith("_");
+  if (state.activeSignalType !== "all") {
+    const isPrefix = state.activeSignalType.endsWith("_");
     filtered = filtered.map(m => ({
       ...m,
-      bets: m.bets.filter(b =>
-        isPrefix ? b.outcome.startsWith(state.activeBetType) : b.outcome === state.activeBetType
+      signals: m.signals.filter(b =>
+        isPrefix ? b.outcome.startsWith(state.activeSignalType) : b.outcome === state.activeSignalType
       ),
     }));
   }
 
   const container = document.getElementById("cards-container");
   if (filtered.length === 0) {
-    container.innerHTML = `<p class="text-center text-gray-400 py-12">No recommendations match the current filters.</p>`;
+    container.innerHTML = `<p class="text-center text-gray-400 py-12">No signals match the current filters.</p>`;
     return;
   }
 
@@ -852,13 +852,13 @@ export function renderHistory() {
     const inner = c.labelHtml
       ? `<span class="inline-flex items-center ${c.align === "right" ? "justify-end" : ""}">${c.labelHtml}</span>`
       : esc(c.label);
-    return `<th class="sortable px-4 py-3 ${align}" data-col="${sk}">${inner}</th>`;
+    const sortCls = c.sortable ? " sortable" : "";
+    return `<th class="px-4 py-3 ${align}${sortCls}" data-col="${sk}">${inner}</th>`;
   }).join("") + "</tr>";
   thead.querySelectorAll("th.sortable").forEach(th => {
     th.addEventListener("click", () => {
-      const col = th.dataset.col;
-      if (state.histSortCol === col) state.histSortDir = state.histSortDir === "desc" ? "asc" : "desc";
-      else { state.histSortCol = col; state.histSortDir = "desc"; }
+      if (state.histSortCol === "kickoff") state.histSortDir = state.histSortDir === "desc" ? "asc" : "desc";
+      else { state.histSortCol = "kickoff"; state.histSortDir = "desc"; }
       renderHistory();
     });
   });
@@ -906,11 +906,11 @@ export function updateHistoryCountUI() {
   if (state.historyTotal === 0) {
     label.textContent = "";
   } else if (shown >= state.historyTotal) {
-    label.textContent = `All ${state.historyTotal} recommendations loaded`;
+    label.textContent = `All ${state.historyTotal} signals loaded`;
     const sentinel = document.getElementById("history-sentinel");
     if (state.historyObserver && sentinel) state.historyObserver.unobserve(sentinel);
   } else {
-    label.textContent = `${shown} / ${state.historyTotal} recommendations`;
+    label.textContent = `${shown} / ${state.historyTotal} signals`;
   }
 }
 

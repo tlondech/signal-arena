@@ -81,6 +81,28 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        await supabase
+          .from("subscriptions")
+          .update({ status: "past_due" })
+          .eq("stripe_customer_id", invoice.customer as string);
+        console.log(`invoice.payment_failed — customer=${invoice.customer}`);
+        break;
+      }
+
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        if (invoice.billing_reason === "subscription_cycle") {
+          await supabase
+            .from("subscriptions")
+            .update({ status: "active" })
+            .eq("stripe_customer_id", invoice.customer as string);
+          console.log(`invoice.payment_succeeded — customer=${invoice.customer}`);
+        }
+        break;
+      }
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }

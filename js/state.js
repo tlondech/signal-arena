@@ -5,20 +5,20 @@
 
 export const state = {
   // ── UI ──────────────────────────────────────────────────────
-  mainTab:          "bets",     // "bets" | "history"
+  mainTab:          "signals",  // "signals" | "history"
   burgerDrawerOpen: false,
 
   // ── Data ────────────────────────────────────────────────────
-  betsData: [],
+  signalsData: [],
   histData: [],
 
   // ── Filters ─────────────────────────────────────────────────
-  activeSport:    "football",   // "football" | "basketball" | "tennis"
-  activeLeague:   "all",
-  activeBetType:  "all",
-  teamSearch:     "",
-  activeDateBets: "all",        // "all" | "today" | "tomorrow" | "week"
-  activeDateHist: "all",        // "all" | "7d" | "30d" | "3m"
+  activeSport:       "football",   // "football" | "basketball" | "tennis"
+  activeLeague:      "all",
+  activeSignalType:  "all",
+  teamSearch:        "",
+  activeDateSignals: "all",        // "all" | "today" | "tomorrow" | "week"
+  activeDateHist:    "all",        // "all" | "7d" | "30d" | "3m"
 
   // ── History table ───────────────────────────────────────────
   histSortCol:      "kickoff",

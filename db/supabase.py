@@ -67,9 +67,9 @@ _SETTLE_KEYS = frozenset({
 })
 
 
-def _write_settled_bets(supabase: Client, rows: list[dict], sport: str) -> int:
+def _write_settled_signals(supabase: Client, rows: list[dict], sport: str) -> int:
     """
-    Persists evaluated settlement rows to bet_history.
+    Persists evaluated settlement rows to signal_history.
 
     Includes only keys present in the row (football rows carry actual_home_goals /
     actual_away_goals; tennis rows do not — the key-filter handles both without branching).
@@ -80,7 +80,7 @@ def _write_settled_bets(supabase: Client, rows: list[dict], sport: str) -> int:
         payload = {k: row[k] for k in _SETTLE_KEYS if k in row}
         try:
             (
-                supabase.table("bet_history")
+                supabase.table("signal_history")
                 .update(payload)
                 .eq("kickoff",   row["kickoff"])
                 .eq("home_team", row["home_team"])
@@ -91,12 +91,12 @@ def _write_settled_bets(supabase: Client, rows: list[dict], sport: str) -> int:
             count += 1
         except Exception as exc:
             logger.error(
-                "Failed to settle %s bet %s vs %s (%s) @ %s: %s",
+                "Failed to settle %s signal %s vs %s (%s) @ %s: %s",
                 sport, row["home_team"], row["away_team"],
                 row["outcome"], row["kickoff"], exc,
             )
     if count:
-        logger.info("Settled %d %s bet(s).", count, sport)
+        logger.info("Settled %d %s signal(s).", count, sport)
     return count
 
 
@@ -109,7 +109,7 @@ def get_supabase_client() -> Client:
     """Creates a Supabase client from environment variables.
 
     Prefers SUPABASE_SERVICE_KEY (bypasses RLS — required after enabling RLS on
-    bet_history).  Falls back to SUPABASE_ANON_KEY for local dev without a
+    signal_history).  Falls back to SUPABASE_ANON_KEY for local dev without a
     service key.
     """
     url = os.getenv("SUPABASE_URL")
@@ -121,18 +121,18 @@ def get_supabase_client() -> Client:
     return create_client(url, key)
 
 
-def settle_supabase_bets(supabase: Client, all_raw_fixtures: list[dict], name_map: dict | None = None) -> int:
+def settle_supabase_signals(supabase: Client, all_raw_fixtures: list[dict], name_map: dict | None = None) -> int:
     """
-    Settles bets directly against Supabase — works in CI where no local SQLite exists.
+    Settles signals directly against Supabase — works in CI where no local SQLite exists.
 
-    1. Fetches unsettled bets from Supabase whose kickoff is in the past.
+    1. Fetches unsettled signals from Supabase whose kickoff is in the past.
     2. Matches them against raw_fixtures (already fetched from football-data.co.uk).
     3. Evaluates each outcome and upserts the result back to Supabase.
     """
     now_iso = datetime.now(timezone.utc).isoformat()
     try:
         resp = (
-            supabase.table("bet_history")
+            supabase.table("signal_history")
             .select("kickoff,home_team,away_team,home_canonical,away_canonical,league_key,outcome")
             .eq("settled", False)
             .eq("sport", "football")
@@ -140,15 +140,15 @@ def settle_supabase_bets(supabase: Client, all_raw_fixtures: list[dict], name_ma
             .execute()
         )
     except Exception as exc:
-        logger.error("Failed to fetch unsettled bets from Supabase: %s", exc)
+        logger.error("Failed to fetch unsettled signals from Supabase: %s", exc)
         return 0
 
     unsettled = cast(list[dict], resp.data or [])
     if not unsettled:
-        logger.debug("No unsettled past bets found in Supabase.")
+        logger.debug("No unsettled past signals found in Supabase.")
         return 0
 
-    # Build fixture index keyed by canonical names so it aligns with bet["home_canonical"].
+    # Build fixture index keyed by canonical names so it aligns with row["home_canonical"].
     # Each fixture is tagged with league_key by run_league_pipeline; resolve_team_name maps
     # the raw CSV/API name to its canonical form. Falls back to raw name if unresolvable.
     fixture_index: dict[tuple, dict] = {}
@@ -163,23 +163,23 @@ def settle_supabase_bets(supabase: Client, all_raw_fixtures: list[dict], name_ma
 
     rows_to_update = []
     settled_at = datetime.now(timezone.utc).isoformat()
-    for bet in unsettled:
+    for row in unsettled:
         # Use stored canonical; fall back to resolving home_team when canonical is null
-        home_key = bet.get("home_canonical")
-        away_key = bet.get("away_canonical")
+        home_key = row.get("home_canonical")
+        away_key = row.get("away_canonical")
         if not home_key or not away_key:
-            lk = bet.get("league_key", "")
+            lk = row.get("league_key", "")
             if name_map and lk:
-                home_key = resolve_team_name(bet.get("home_team", ""), name_map, lk) or bet.get("home_team")
-                away_key = resolve_team_name(bet.get("away_team", ""), name_map, lk) or bet.get("away_team")
+                home_key = resolve_team_name(row.get("home_team", ""), name_map, lk) or row.get("home_team")
+                away_key = resolve_team_name(row.get("away_team", ""), name_map, lk) or row.get("away_team")
             else:
-                home_key, away_key = bet.get("home_team"), bet.get("away_team")
+                home_key, away_key = row.get("home_team"), row.get("away_team")
         fixture = fixture_index.get((home_key, away_key))
         if fixture is None:
             continue
 
         # Date guard: fixture must be within ±1 day of kickoff
-        kickoff_dt = datetime.fromisoformat(bet["kickoff"].replace("Z", "+00:00"))
+        kickoff_dt = datetime.fromisoformat(row["kickoff"].replace("Z", "+00:00"))
         fixture_dt = fixture["fixture_date"]
         if not isinstance(fixture_dt, datetime):
             fixture_dt = datetime.fromisoformat(str(fixture_dt))
@@ -189,16 +189,16 @@ def settle_supabase_bets(supabase: Client, all_raw_fixtures: list[dict], name_ma
             continue
 
         hg, ag = fixture["home_goals"], fixture["away_goals"]
-        outcome = bet["outcome"]
+        outcome = row["outcome"]
         won = {"home_win": hg > ag, "draw": hg == ag, "away_win": ag > hg}.get(outcome)
         if won is None:
             won = _settle_totals(outcome, hg, ag) or False
 
         rows_to_update.append({
-            "kickoff":           bet["kickoff"],
-            "home_team":         bet["home_team"],
-            "away_team":         bet["away_team"],
-            "outcome":           bet["outcome"],
+            "kickoff":           row["kickoff"],
+            "home_team":         row["home_team"],
+            "away_team":         row["away_team"],
+            "outcome":           row["outcome"],
             "settled":           True,
             "result":            "won" if won else "lost",
             "actual_home_goals": hg,
@@ -207,28 +207,28 @@ def settle_supabase_bets(supabase: Client, all_raw_fixtures: list[dict], name_ma
         })
 
     if not rows_to_update:
-        logger.debug("No fixture matches found for unsettled bets.")
+        logger.debug("No fixture matches found for unsettled signals.")
         return 0
 
-    return _write_settled_bets(supabase, rows_to_update, "football via Supabase")
+    return _write_settled_signals(supabase, rows_to_update, "football via Supabase")
 
 
-def settle_tennis_supabase_bets(
+def settle_tennis_supabase_signals(
     supabase: Client,
     active_tennis_league_keys: list[str],
 ) -> int:
     """
-    Settles unsettled tennis bets in Supabase using tennis-data.co.uk CSV results.
+    Settles unsettled tennis signals in Supabase using tennis-data.co.uk CSV results.
 
     For each active tennis league, fetches completed match results and matches them
-    against unsettled bets by player name and date proximity.
+    against unsettled signals by player name and date proximity.
     """
     now_iso = datetime.now(timezone.utc).isoformat()
     year    = datetime.now(timezone.utc).year
 
     try:
         resp = (
-            supabase.table("bet_history")
+            supabase.table("signal_history")
             .select("id,kickoff,home_team,away_team,outcome,league_key")
             .eq("settled", False)
             .eq("sport", "tennis")
@@ -236,18 +236,18 @@ def settle_tennis_supabase_bets(
             .execute()
         )
     except Exception as exc:
-        logger.error("Failed to fetch unsettled tennis bets: %s", exc)
+        logger.error("Failed to fetch unsettled tennis signals: %s", exc)
         return 0
 
     unsettled = cast(list[dict], resp.data or [])
     if not unsettled:
-        logger.debug("No unsettled past tennis bets found.")
+        logger.debug("No unsettled past tennis signals found.")
         return 0
 
-    # Union of currently-active keys + keys that appear in unsettled bets.
+    # Union of currently-active keys + keys that appear in unsettled signals.
     # Tournaments that have finished drop out of the Odds API, so their league keys
     # won't be in active_tennis_league_keys — but we still need results for them.
-    all_keys = set(active_tennis_league_keys) | {bet.get("league_key", "") for bet in unsettled}
+    all_keys = set(active_tennis_league_keys) | {row.get("league_key", "") for row in unsettled}
     all_keys.discard("")
 
     # Build results index per league key.
@@ -259,15 +259,15 @@ def settle_tennis_supabase_bets(
     rows_to_update = []
     settled_at = datetime.now(timezone.utc).isoformat()
 
-    for bet in unsettled:
-        lk      = bet.get("league_key", "")
+    for row in unsettled:
+        lk      = row.get("league_key", "")
         results = results_by_league.get(lk, [])
         if not results:
             continue
 
-        kickoff_dt = datetime.fromisoformat(bet["kickoff"].replace("Z", "+00:00"))
-        home = bet["home_team"]
-        away = bet["away_team"]
+        kickoff_dt = datetime.fromisoformat(row["kickoff"].replace("Z", "+00:00"))
+        home = row["home_team"]
+        away = row["away_team"]
 
         matched = None
         for r in results:
@@ -284,15 +284,15 @@ def settle_tennis_supabase_bets(
             continue
 
         won = (
-            (bet["outcome"] == "home_win" and _last_name(matched["winner"]) == _last_name(home)) or
-            (bet["outcome"] == "away_win" and _last_name(matched["winner"]) == _last_name(away))
+            (row["outcome"] == "home_win" and _last_name(matched["winner"]) == _last_name(home)) or
+            (row["outcome"] == "away_win" and _last_name(matched["winner"]) == _last_name(away))
         )
         rows_to_update.append({
-            "id":         bet["id"],
+            "id":         row["id"],
             "home_team":  home,
             "away_team":  away,
-            "outcome":    bet["outcome"],
-            "kickoff":    bet["kickoff"],
+            "outcome":    row["outcome"],
+            "kickoff":    row["kickoff"],
             "settled":    True,
             "result":     "won" if won else "lost",
             "settled_at": settled_at,
@@ -301,16 +301,16 @@ def settle_tennis_supabase_bets(
     if not rows_to_update:
         return 0
 
-    return _write_settled_bets(supabase, rows_to_update, "tennis via tennis-data.co.uk")
+    return _write_settled_signals(supabase, rows_to_update, "tennis via tennis-data.co.uk")
 
 
-def settle_nba_supabase_bets(
+def settle_nba_supabase_signals(
     supabase: Client,
     nba_league_keys: list[str],
     name_map: dict[str, dict[str, str]] | None = None,
 ) -> int:
     """
-    Settles unsettled NBA bets in Supabase using nba_api game results.
+    Settles unsettled NBA signals in Supabase using nba_api game results.
 
     Uses team_name_map.json["nba"] to normalise both sides to abbreviations
     (e.g. "LA Clippers" and "Los Angeles Clippers" both → "LAC"), so matching
@@ -324,12 +324,12 @@ def settle_nba_supabase_bets(
     from extractors.nba_data_client import NBADataClient
 
     now = datetime.now(timezone.utc)
-    # Only consider bets for games that have had enough time to finish
+    # Only consider signals for games that have had enough time to finish
     cutoff_iso = (now - timedelta(hours=NBA_LIVE_MATCH_WINDOW_HOURS)).isoformat()
 
     try:
         resp = (
-            supabase.table("bet_history")
+            supabase.table("signal_history")
             .select("id,kickoff,home_team,away_team,outcome,league_key")
             .eq("settled", False)
             .eq("sport", "basketball")
@@ -338,12 +338,12 @@ def settle_nba_supabase_bets(
             .execute()
         )
     except Exception as exc:
-        logger.error("Failed to fetch unsettled NBA bets: %s", exc)
+        logger.error("Failed to fetch unsettled NBA signals: %s", exc)
         return 0
 
     unsettled = cast(list[dict], resp.data or [])
     if not unsettled:
-        logger.debug("No unsettled past NBA bets found.")
+        logger.debug("No unsettled past NBA signals found.")
         return 0
 
     try:
@@ -376,10 +376,10 @@ def settle_nba_supabase_bets(
     rows_to_update = []
     settled_at = now.isoformat()
 
-    for bet in unsettled:
-        kickoff_dt = datetime.fromisoformat(bet["kickoff"].replace("Z", "+00:00"))
-        home_abbr = _to_abbr(bet["home_team"])
-        away_abbr = _to_abbr(bet["away_team"])
+    for row in unsettled:
+        kickoff_dt = datetime.fromisoformat(row["kickoff"].replace("Z", "+00:00"))
+        home_abbr = _to_abbr(row["home_team"])
+        away_abbr = _to_abbr(row["away_team"])
 
         # Try to match within ±1 day of kickoff
         matched = None
@@ -395,7 +395,7 @@ def settle_nba_supabase_bets(
 
         home_pts = matched["home_pts"]
         away_pts = matched["away_pts"]
-        outcome  = bet["outcome"]
+        outcome  = row["outcome"]
 
         # Moneyline
         if outcome == "home_win":
@@ -414,11 +414,11 @@ def settle_nba_supabase_bets(
             continue
 
         rows_to_update.append({
-            "id":        bet["id"],
-            "home_team": bet["home_team"],
-            "away_team": bet["away_team"],
+            "id":        row["id"],
+            "home_team": row["home_team"],
+            "away_team": row["away_team"],
             "outcome":   outcome,
-            "kickoff":   bet["kickoff"],
+            "kickoff":   row["kickoff"],
             "settled":   True,
             "result":    "won" if won else "lost",
             "actual_home_goals": home_pts,
@@ -429,12 +429,12 @@ def settle_nba_supabase_bets(
     if not rows_to_update:
         return 0
 
-    return _write_settled_bets(supabase, rows_to_update, "NBA")
+    return _write_settled_signals(supabase, rows_to_update, "NBA")
 
 
 def _settle_nba_spread(outcome: str, home_pts: int, away_pts: int) -> bool:
     """
-    Determines if a spread/handicap bet won.
+    Determines if a spread/handicap signal won.
 
     Outcome encoding:
         "spread_home_m5_5"  → home covers -5.5  → home must win by > 5.5
@@ -473,20 +473,20 @@ def _decode_spread_line(encoded: str) -> float:
     return float(f"{parts[0]}.{''.join(parts[1:])}") if len(parts) > 1 else float(parts[0])
 
 
-def prune_stale_supabase_bets(
+def prune_stale_supabase_signals(
     supabase: Client,
-    all_value_bets: list[dict],
+    all_signals: list[dict],
     processed_league_keys: set[str],
 ) -> int:
     """
-    Deletes unsettled future bets from Supabase for processed leagues whose
-    outcome is no longer in the current recommended set.
+    Deletes unsettled future signals from Supabase for processed leagues whose
+    outcome is no longer in the current detected set.
     """
     now_iso = datetime.now(timezone.utc).isoformat()
 
     try:
         resp = (
-            supabase.table("bet_history")
+            supabase.table("signal_history")
             .select("id,kickoff,home_team,away_team,outcome,league_key")
             .eq("settled", False)
             .gt("kickoff", now_iso)
@@ -494,16 +494,16 @@ def prune_stale_supabase_bets(
             .execute()
         )
     except Exception as exc:
-        logger.error("Failed to fetch unsettled bets for pruning: %s", exc)
+        logger.error("Failed to fetch unsettled signals for pruning: %s", exc)
         return 0
 
     existing: list[dict] = cast(list[dict], resp.data or [])
 
     current_keys: set[tuple] = set()
-    for m in all_value_bets:
+    for m in all_signals:
         kickoff_utc = _utc_prefix(m["kickoff"])
-        for b in m["bets"]:
-            current_keys.add((kickoff_utc, m["home_team"], m["away_team"], b["outcome"]))
+        for s in m["signals"]:
+            current_keys.add((kickoff_utc, m["home_team"], m["away_team"], s["outcome"]))
 
     stale_ids = [
         row["id"]
@@ -516,27 +516,27 @@ def prune_stale_supabase_bets(
         return 0
 
     try:
-        supabase.table("bet_history").delete().in_("id", stale_ids).execute()
-        logger.info("Pruned %d stale bet(s) from Supabase.", len(stale_ids))
+        supabase.table("signal_history").delete().in_("id", stale_ids).execute()
+        logger.info("Pruned %d stale signal(s) from Supabase.", len(stale_ids))
         return len(stale_ids)
     except Exception as exc:
-        logger.error("Failed to prune stale bets from Supabase: %s", exc)
+        logger.error("Failed to prune stale signals from Supabase: %s", exc)
         return 0
 
 
-def push_bets_to_supabase(
+def push_signals_to_supabase(
     supabase: Client,
-    value_bets: list[dict],
+    signals: list[dict],
     recorded_date: str,
 ) -> int:
     """
-    Upserts today's value bets into the Supabase `bet_history` table.
+    Upserts today's signals into the Supabase `signal_history` table.
     Uses the unique constraint (kickoff, home_team, away_team, outcome)
     to skip duplicates. Returns the number of rows upserted.
     """
     rows = []
-    for m in value_bets:
-        for b in m["bets"]:
+    for m in signals:
+        for s in m["signals"]:
             rows.append({
                 "recorded_date":  recorded_date,
                 "league_key":     m["league_key"],
@@ -547,11 +547,11 @@ def push_bets_to_supabase(
                 "away_canonical": m.get("away_canonical"),
                 "kickoff":        m["kickoff"],  # ISO 8601 → Supabase parses as TIMESTAMPTZ
                 "stage":          m.get("stage"),
-                "outcome":        b["outcome"],
-                "outcome_label":  b["outcome_label"],
-                "odds":           b["odds"],
-                "true_prob":      b["true_prob"],
-                "ev":             b["ev"],
+                "outcome":        s["outcome"],
+                "outcome_label":  s["outcome_label"],
+                "odds":           s["odds"],
+                "true_prob":      s["true_prob"],
+                "ev":             s["ev"],
                 "home_rank":      m.get("home_rank"),
                 "away_rank":      m.get("away_rank"),
                 "home_form":      m.get("home_form"),
@@ -572,7 +572,7 @@ def push_bets_to_supabase(
             })
 
     if not rows:
-        logger.info("No value bets to push to Supabase.")
+        logger.info("No signals to push to Supabase.")
         return 0
 
     # Before upserting, delete any unsettled rows for the same match that may
@@ -583,7 +583,7 @@ def push_bets_to_supabase(
     try:
         league_keys = list({r["league_key"] for r in rows})
         existing = (
-            supabase.table("bet_history")
+            supabase.table("signal_history")  # noqa: duplicate table ref — intentional
             .select("id,home_team,away_team,league_key,outcome,kickoff")
             .in_("league_key", league_keys)
             .eq("settled", False)
@@ -601,8 +601,8 @@ def push_bets_to_supabase(
             and row["kickoff"] != current_kickoffs[(row["home_team"], row["away_team"], row["league_key"], row["outcome"])]
         ]
         if stale_ids:
-            supabase.table("bet_history").delete().in_("id", stale_ids).execute()
-            logger.info("Deleted %d stale bet row(s) before upsert.", len(stale_ids))
+            supabase.table("signal_history").delete().in_("id", stale_ids).execute()
+            logger.info("Deleted %d stale signal row(s) before upsert.", len(stale_ids))
         stale_id_set = set(stale_ids)
         existing_keys = {
             (row["home_team"], row["away_team"], row["league_key"], row["outcome"], row["kickoff"])
@@ -610,11 +610,11 @@ def push_bets_to_supabase(
             if row["id"] not in stale_id_set
         }
     except Exception as exc:
-        logger.warning("Failed to clean up stale bets before upsert: %s", exc)
+        logger.warning("Failed to clean up stale signals before upsert: %s", exc)
 
     try:
         response = (
-            supabase.table("bet_history")
+            supabase.table("signal_history")
             .upsert(rows, on_conflict="kickoff,home_team,away_team,outcome")
             .execute()
         )
@@ -624,8 +624,8 @@ def push_bets_to_supabase(
             if (r["home_team"], r["away_team"], r["league_key"], r["outcome"], r["kickoff"]) in existing_keys
         )
         n_created = count - n_updated
-        logger.info("Pushed %d bet row(s) to Supabase (%d new, %d updated).", count, n_created, n_updated)
+        logger.info("Pushed %d signal row(s) to Supabase (%d new, %d updated).", count, n_created, n_updated)
         return count
     except Exception as exc:
-        logger.error("Failed to push bets to Supabase: %s", exc)
+        logger.error("Failed to push signals to Supabase: %s", exc)
         raise

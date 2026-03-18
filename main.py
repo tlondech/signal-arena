@@ -1,5 +1,5 @@
 """
-Betting Recommendation Engine — Main Orchestrator
+Signal Arena — Main Orchestrator
 Run: python main.py
 
 Pipeline (per enabled league):
@@ -9,8 +9,8 @@ Pipeline (per enabled league):
   4. Fetch finished fixtures + xG (football-data.co.uk CSV)
   5. Upsert fixtures into SQLite
   6. Build Poisson features per match
-  7. Calculate Expected Value → collect value bets
-  8. Merge all leagues, push value bets to Supabase bet_history table
+  7. Calculate Expected Value → collect signals
+  8. Merge all leagues, push signals to Supabase signal_history table
 """
 
 import argparse
@@ -27,15 +27,15 @@ from sqlalchemy.orm import Session
 from config import LEAGUES as _ALL_LEAGUES
 from config import _current_nba_season, load_config
 from constants import LOCAL_REPORT_URL
-from db.queries import prune_stale_bets, save_bets_to_history
+from db.queries import prune_stale_signals, save_signals_to_history
 from db.schema import init_db
 from db.supabase import (
     get_supabase_client,
-    prune_stale_supabase_bets,
-    push_bets_to_supabase,
-    settle_nba_supabase_bets,
-    settle_supabase_bets,
-    settle_tennis_supabase_bets,
+    prune_stale_supabase_signals,
+    push_signals_to_supabase,
+    settle_nba_supabase_signals,
+    settle_supabase_signals,
+    settle_tennis_supabase_signals,
 )
 from extractors.nba_data_client import NBADataClient
 from extractors.odds import fetch_active_tennis_leagues
@@ -164,39 +164,39 @@ def _log_enabled_leagues(cfg) -> None:
 # ---------------------------------------------------------------------------
 
 def _settle_all(supabase, cfg, all_raw_fixtures: list[dict], name_map: dict, force_fetch: bool) -> None:
-    """Settles past bets across all sport types."""
+    """Settles past signals across all sport types."""
     org_settle = _fetch_org_settlement_fixtures(cfg.enabled_leagues, cfg, name_map) if force_fetch else []
     settlement_fixtures = _merge_settlement_fixtures(all_raw_fixtures, org_settle, name_map)
-    settle_supabase_bets(supabase, settlement_fixtures, name_map)
+    settle_supabase_signals(supabase, settlement_fixtures, name_map)
 
     tennis_keys = [lg.key for lg in cfg.enabled_leagues if lg.sport_type == "tennis"]
     if tennis_keys:
-        settle_tennis_supabase_bets(supabase, tennis_keys)
+        settle_tennis_supabase_signals(supabase, tennis_keys)
 
     nba_keys = [lg.key for lg in cfg.enabled_leagues if lg.sport_type == "basketball"]
     if nba_keys:
-        settle_nba_supabase_bets(supabase, nba_keys, name_map)
+        settle_nba_supabase_signals(supabase, nba_keys, name_map)
 
 
 # ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
 
-def _persist(supabase, engine, all_value_bets: list[dict], processed_league_keys: set[str]) -> None:
-    """Saves value bets to local SQLite and Supabase, pruning stale entries."""
+def _persist(supabase, engine, all_signals: list[dict], processed_league_keys: set[str]) -> None:
+    """Saves signals to local SQLite and Supabase, pruning stale entries."""
     today = date.today().isoformat()
 
     with Session(engine) as session:
-        n_pruned = prune_stale_bets(session, all_value_bets, processed_league_keys)
-        n_new = save_bets_to_history(session, all_value_bets, today)
+        n_pruned = prune_stale_signals(session, all_signals, processed_league_keys)
+        n_new = save_signals_to_history(session, all_signals, today)
         session.commit()
     if n_pruned:
-        logger.info("Pruned %d stale bet record(s) from local DB.", n_pruned)
+        logger.info("Pruned %d stale signal(s) from local DB.", n_pruned)
     if n_new:
-        logger.info("Saved %d new bet record(s) to local DB.", n_new)
+        logger.info("Saved %d new signal(s) to local DB.", n_new)
 
-    prune_stale_supabase_bets(supabase, all_value_bets, processed_league_keys)
-    push_bets_to_supabase(supabase, all_value_bets, today)
+    prune_stale_supabase_signals(supabase, all_signals, processed_league_keys)
+    push_signals_to_supabase(supabase, all_signals, today)
 
 
 # ---------------------------------------------------------------------------
@@ -215,33 +215,33 @@ def run_pipeline(force_fetch: bool = False, dry_run: bool = False) -> None:
 
     supabase = get_supabase_client()
 
-    all_value_bets: list[dict] = []
+    all_signals: list[dict] = []
     all_raw_fixtures: list[dict] = []
     for league in cfg.enabled_leagues:
-        league_bets, raw_fixtures = run_league_pipeline(
+        league_signals, raw_fixtures = run_league_pipeline(
             league, cfg, engine, name_map, force_fetch=force_fetch, dry_run=dry_run,
         )
-        all_value_bets.extend(league_bets)
+        all_signals.extend(league_signals)
         all_raw_fixtures.extend(raw_fixtures)
 
     if dry_run:
         return
 
-    all_value_bets.sort(key=lambda x: x["kickoff"])
-    total_bets = sum(len(m["bets"]) for m in all_value_bets)
+    all_signals.sort(key=lambda x: x["kickoff"])
+    total_signals = sum(len(m["signals"]) for m in all_signals)
     logger.info(
-        "Total: %d value bets across %d matches  (%.1f sec)",
-        total_bets, len(all_value_bets), time.monotonic() - t0,
+        "Total: %d signals across %d matches  (%.1f sec)",
+        total_signals, len(all_signals), time.monotonic() - t0,
     )
 
     _settle_all(supabase, cfg, all_raw_fixtures, name_map, force_fetch)
-    _persist(supabase, engine, all_value_bets, {lg.key for lg in cfg.enabled_leagues})
+    _persist(supabase, engine, all_signals, {lg.key for lg in cfg.enabled_leagues})
 
     webbrowser.open(LOCAL_REPORT_URL)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Betting Recommendation Engine")
+    parser = argparse.ArgumentParser(description="Signal Arena")
     parser.add_argument("--fetch", action="store_true", help="Always fetch fresh data from external APIs (use in CI / scheduled runs)")
     parser.add_argument("--dry-run", action="store_true", help="Check Odds API coverage per league without writing to DB or running the model")
     parser.add_argument("--debug", action="store_true", help="Enable DEBUG-level logging")
@@ -250,7 +250,7 @@ def main() -> None:
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    logger.info("══ Betting Engine ══  %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    logger.info("══ Signal Arena ══  %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     try:
         run_pipeline(force_fetch=args.fetch, dry_run=args.dry_run)
     except Exception as e:

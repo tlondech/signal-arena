@@ -1,4 +1,4 @@
-# CLAUDE.md — Betting Recommendation Engine
+# CLAUDE.md — Signal Engine
 
 ## Project overview
 Statistical value-bet finder for football, tennis, and NBA. Fetches live Winamax odds via The Odds API, runs sport-specific predictive models, and surfaces bets where EV > threshold. Results are stored in Supabase and displayed in a plain-HTML/ES-module SPA.
@@ -55,9 +55,9 @@ GitHub Actions (`.github/workflows/daily_update.yml`) runs `python main.py --fet
 - Don't mention API quota in README.md file
 
 ## Vocabulary
-Act as a strict UX copywriter for a premium, data-driven sports betting analytics platform. Our product surfaces positive Expected Value (+EV) opportunities based on statistical models. We treat betting as a mathematical discipline, not gambling.
+Act as a strict UX copywriter for Signal Arena — a data-driven sports analytics platform. Our product detects statistical signals in sports markets and surfaces +EV opportunities identified by predictive models. We treat sports analysis as a quantitative discipline, not gambling.
 
 Strict Vocabulary Rules to Enforce:
-- NEVER USE: Picks, locks, sure things, bet of the day, winnings, tipster, gamble, guaranteed, jackpot.
-- ALWAYS USE: Recommendations, value bets, +EV, edge, variance, turnover, P&L, ROI, staking, probabilities, historical yield.
-- TONE: Objective, analytical, transparent, and responsible. Never use hype or FOMO. Speak to the user like a financial analyst speaking to a client.
+- NEVER USE: Picks, locks, sure things, bet of the day, winnings, tipster, gamble, guaranteed, jackpot, value bets, bet, betting.
+- ALWAYS USE: Signals, +EV, edge, model output, variance, turnover, P&L, ROI, staking, probabilities, historical yield, market inefficiency.
+- TONE: Objective, analytical, transparent, and responsible. Never use hype or FOMO. Speak to the user like a data scientist presenting model findings.

@@ -1,4 +1,4 @@
-import { sb, SUPABASE_URL } from "./config.js";
+import { sb, SUPABASE_URL, TRIAL_DAYS } from "./config.js";
 import { signOut } from "./auth.js";
 
 const CREATE_CHECKOUT_FN = `${SUPABASE_URL}/functions/v1/create-checkout-session`;
@@ -33,11 +33,11 @@ export async function startCheckout(session) {
       <div class="w-full max-w-xs">
         <div class="spinner mx-auto mb-8"></div>
         <h1 class="text-lg font-bold text-white mb-1">Starting your free trial</h1>
-        <p class="text-sm text-gray-400 mb-2">7 days free, then €19.99/month. Cancel any time.</p>
+        <p class="text-sm text-gray-400 mb-2">${TRIAL_DAYS} days free, then €19.99/month. Cancel any time.</p>
         <p class="text-xs text-gray-600 mb-8">You won't be charged until your trial ends.</p>
         <p id="checkout-error" class="hidden text-xs text-red-400 mb-6"></p>
         <p class="text-xs text-gray-700 leading-relaxed">
-          For informational purposes only. Not financial or betting advice. Bet responsibly.
+          For informational purposes only. Not financial or wagering advice. Participate responsibly.
         </p>
       </div>
     </div>`;
@@ -70,19 +70,19 @@ export function renderPaywall(session) {
         <div class="text-4xl mb-4">⚡</div>
         <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Subscribe to unlock</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
-          Get daily +EV recommendations across football, basketball, and tennis — powered by Dixon-Coles, Elo, and Gaussian models.
+          Get daily +EV signals across football, basketball, and tennis — powered by Dixon-Coles, Elo, and Gaussian models.
         </p>
 
         <ul class="text-left space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-8">
-          <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> Football, tennis &amp; NBA value bets</li>
+          <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> Football, tennis &amp; NBA signals</li>
           <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> Updated 4× daily via live odds</li>
           <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> Full history &amp; ROI tracker</li>
-          <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> Bookmaker links on every recommendation</li>
+          <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> Bookmaker links on every signal</li>
         </ul>
 
         <button id="subscribe-btn"
           class="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-3">
-          Start 7-day free trial
+          Start ${TRIAL_DAYS}-day free trial
         </button>
         <p class="text-xs text-gray-400 dark:text-gray-500 mb-6">Card required. Cancel any time.</p>
 
@@ -94,7 +94,7 @@ export function renderPaywall(session) {
         </p>
 
         <p class="text-xs text-gray-400 dark:text-gray-600 mt-6 leading-relaxed">
-          For informational purposes only. Not financial or betting advice. Bet responsibly.
+          For informational purposes only. Not financial or wagering advice. Participate responsibly.
         </p>
       </div>
     </div>`;
@@ -123,7 +123,7 @@ export function attachPaywallListeners(session) {
       errorEl.textContent = err.message || "Could not start checkout. Please try again.";
       errorEl.classList.remove("hidden");
       subscribeBtn.disabled = false;
-      subscribeBtn.textContent = "Start 7-day free trial";
+      subscribeBtn.textContent = "Start ${TRIAL_DAYS}-day free trial";
     }
   });
 

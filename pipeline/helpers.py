@@ -20,7 +20,7 @@ _STATIC_LABELS = {
 
 
 def get_outcome_label(outcome: str) -> str:
-    """Return a human-readable label for a bet outcome key.
+    """Return a human-readable label for a signal outcome key.
 
     Static outcomes (home_win, draw, away_win) use a lookup table.
     Totals outcomes encode a normalised half-integer line: "over_2_5" → "Over 2.5".

@@ -63,7 +63,7 @@ def calculate_over_under_probs(score_matrix: np.ndarray, line: float = 2.5) -> d
 def calculate_ev(true_probability: float, decimal_odds: float) -> float:
     """
     EV = (true_probability * decimal_odds) - 1
-    Positive EV means the bet has a positive expected return.
+    Positive EV means the signal has positive expected value.
     """
     return (true_probability * decimal_odds) - 1.0
 
@@ -119,17 +119,17 @@ def evaluate_match(
     over_ev  = calculate_ev(ou["over"],  over_odds)  if over_odds  is not None else None
     under_ev = calculate_ev(ou["under"], under_odds) if under_odds is not None else None
 
-    value_bets = []
+    signals = []
     if home_ev >= ev_threshold:
-        value_bets.append("home_win")
+        signals.append("home_win")
     if away_ev >= ev_threshold:
-        value_bets.append("away_win")
+        signals.append("away_win")
     if draw_ev is not None and draw_ev >= ev_threshold:
-        value_bets.append("draw")
+        signals.append("draw")
     if over_ev is not None and over_ev >= ev_threshold:
-        value_bets.append(over_key)
+        signals.append(over_key)
     if under_ev is not None and under_ev >= ev_threshold:
-        value_bets.append(under_key)
+        signals.append(under_key)
 
     return {
         "home_win_prob": home_prob,
@@ -142,7 +142,7 @@ def evaluate_match(
         "away_ev":  away_ev,
         over_key + "_ev":  over_ev,
         under_key + "_ev": under_ev,
-        "value_bets": value_bets,
+        "signals": signals,
         "over_key":   over_key,
         "under_key":  under_key,
     }

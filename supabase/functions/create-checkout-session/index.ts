@@ -75,9 +75,9 @@ Deno.serve(async (req) => {
     cancel_url:  `${FRONTEND_URL}?checkout=cancel`,
   };
 
-  // Offer 7-day trial only if they haven't used one before
+  // Offer 14-day trial only if they haven't used one before
   if (!trialUsed) {
-    sessionParams.subscription_data = { trial_period_days: 7 };
+    sessionParams.subscription_data = { trial_period_days: 14 };
   }
 
   const session = await stripe.checkout.sessions.create(sessionParams);
