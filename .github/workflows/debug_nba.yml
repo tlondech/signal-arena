@@ -57,7 +57,7 @@ jobs:
 
           url = (
               "https://stats.nba.com/stats/leaguegamefinder"
-              "?LeagueID=00&Season=2024-25&SeasonType=Regular+Season"
+              "?LeagueID=00&Season=2025-26&SeasonType=Regular+Season"
           )
 
           print(f"Target URL : {url}")
@@ -96,7 +96,7 @@ jobs:
               time.sleep(1)
               finder = leaguegamefinder.LeagueGameFinder(
                   league_id_nullable="00",
-                  season_nullable="2024-25",
+                  season_nullable="2025-26",
                   season_type_nullable="Regular Season",
                   timeout=timeout,
                   headers=headers,
@@ -114,7 +114,7 @@ jobs:
               time.sleep(1)
               finder = leaguegamefinder.LeagueGameFinder(
                   league_id_nullable="00",
-                  season_nullable="2024-25",
+                  season_nullable="2025-26",
                   season_type_nullable="Regular Season",
                   timeout=timeout,
               )
