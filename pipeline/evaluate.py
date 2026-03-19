@@ -79,10 +79,22 @@ def build_features(
     total_matchdays: int | None = None
     form_map: dict[str, list[str]] = {}
     if league.sport_type == "football":
-        standings = compute_standings(raw_fixtures)
+        # Normalize ESPN name variants to canonical names before computing standings/form
+        # so that teams with historical name changes (e.g. "Paris Saint-Germain" vs "Paris SG")
+        # are merged into a single canonical key.
+        if league_map:
+            def _norm(name: str) -> str:
+                return league_map.get(name, name)
+            normalized_fixtures = [
+                {**f, "home_team": _norm(f["home_team"]), "away_team": _norm(f["away_team"])}
+                for f in raw_fixtures
+            ]
+        else:
+            normalized_fixtures = raw_fixtures
+        standings = compute_standings(normalized_fixtures)
         rankings = standings["rankings"]
         total_matchdays = standings["total_matchdays"]
-        form_map = compute_form(raw_fixtures)
+        form_map = compute_form(normalized_fixtures)
         logger.debug(
             "[%s] Standings computed: %d teams, total_matchdays=%s.",
             league.key, len(rankings), total_matchdays,
