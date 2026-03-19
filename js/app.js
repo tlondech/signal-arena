@@ -1,5 +1,6 @@
 import { state } from "./state.js";
 import { fetchSignals, fetchHistoryPage, fetchPendingSignals } from "./api.js";
+import { refreshAnalytics, setupAnalytics } from "./analytics.js";
 import {
   relativeDate,
   setMainTab,
@@ -11,10 +12,9 @@ import {
   updateFilterBadge,
   updateHistoryCountUI,
   resetHistoryPagination,
-  openDrawer,
-  closeDrawer,
   openBurgerDrawer,
   closeBurgerDrawer,
+  renderBurgerDrawerPills,
 } from "./ui.js";
 import {
   getSession,
@@ -56,6 +56,16 @@ export async function refreshData() {
     const lastUpdatedText = "Last updated " + relativeDate(latestRun);
     document.getElementById("last-updated").textContent = lastUpdatedText;
     document.getElementById("last-updated-mobile").textContent = lastUpdatedText;
+
+    // If "today" yields no signals, fall back to "this week" automatically
+    if (state.activeDateSignals === "today") {
+      const tz     = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const todayD = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+      const hasToday = state.signalsData.some(r =>
+        new Date(r.kickoff).toLocaleDateString("en-CA", { timeZone: tz }) === todayD
+      );
+      if (!hasToday) state.activeDateSignals = "week";
+    }
 
     // Render whichever panel is currently visible
     if (state.mainTab === "history") renderHistory();
@@ -215,9 +225,17 @@ async function init() {
     }
   }
 
+  setupAnalytics();
+  function resetAndRefresh() {
+    resetHistoryPagination();
+  }
+
   // Desktop tab buttons
   document.querySelectorAll(".main-tab-btn").forEach(btn =>
-    btn.addEventListener("click", () => setMainTab(btn.dataset.main))
+    btn.addEventListener("click", () => {
+      setMainTab(btn.dataset.main);
+      if (btn.dataset.main === "analytics") refreshAnalytics();
+    })
   );
 
   // History status tabs (won / lost / settled)
@@ -230,88 +248,70 @@ async function init() {
     });
   });
 
+  // Date dropdown (desktop action bar)
+  document.getElementById("date-select").addEventListener("change", e => {
+    state.activeDateSignals = e.target.value;
+    updateFilterUI();
+    renderSignalsPanel();
+  });
+
   // Clear filters (desktop)
   document.getElementById("clear-filters-btn").addEventListener("click", () => {
-    state.activeLeague      = "all";
-    state.activeSignalType  = "all";
-    state.teamSearch        = "";
-    state.activeDateSignals = "all";
-    state.activeDateHist    = "all";
+    state.activeSport              = "all";
+    state.activeLeague             = "all";
+    state.activeSignalType         = "all";
+    state.teamSearch               = "";
+    state.activeDateSignals        = "today";
+    state.activeDateHist           = "all";
+    state.analyticsActiveDateRange = "all";
     document.getElementById("team-search").value = "";
     document.getElementById("team-search-mobile").value = "";
     updateFilterUI();
-    renderSignalsPanel();
-    resetHistoryPagination();
+    renderBurgerDrawerPills();
+    if (state.mainTab === "analytics") refreshAnalytics();
+    else { renderSignalsPanel(); resetAndRefresh(); }
   });
 
-  // Right filter drawer (desktop)
-  document.getElementById("filters-toggle").addEventListener("click", openDrawer);
-  document.getElementById("drawer-close").addEventListener("click", closeDrawer);
+  // Filters button (desktop) opens the same left drawer as the mobile burger
+  document.getElementById("filters-toggle").addEventListener("click", openBurgerDrawer);
 
-  // Shared backdrop — dispatch to whichever drawer is open
-  document.getElementById("filter-backdrop").addEventListener("click", () => {
-    if (state.burgerDrawerOpen) closeBurgerDrawer(); else closeDrawer();
-  });
+  // Shared backdrop
+  document.getElementById("filter-backdrop").addEventListener("click", closeBurgerDrawer);
 
   // Burger drawer (mobile)
   document.getElementById("burger-btn").addEventListener("click", openBurgerDrawer);
   document.getElementById("burger-drawer-close").addEventListener("click", closeBurgerDrawer);
   document.getElementById("burger-reset-btn").addEventListener("click", () => {
-    state.activeLeague      = "all";
-    state.activeSignalType  = "all";
-    state.teamSearch        = "";
-    state.activeDateSignals = "all";
-    state.activeDateHist    = "all";
+    state.activeSport              = "all";
+    state.activeLeague             = "all";
+    state.activeSignalType         = "all";
+    state.teamSearch               = "";
+    state.activeDateSignals        = "today";
+    state.activeDateHist           = "all";
+    state.analyticsActiveDateRange = "all";
     document.getElementById("team-search").value = "";
     document.getElementById("team-search-mobile").value = "";
     updateFilterUI();
-    renderSignalsPanel();
-    resetHistoryPagination();
+    renderBurgerDrawerPills();
+    if (state.mainTab === "analytics") refreshAnalytics();
+    else { renderSignalsPanel(); resetAndRefresh(); }
     closeBurgerDrawer();
   });
 
   // Bottom nav tabs (mobile)
   document.querySelectorAll(".bottom-nav-btn").forEach(btn =>
-    btn.addEventListener("click", () => setMainTab(btn.dataset.main))
-  );
-
-  // Sport popover (bottom nav, mobile)
-  const sportPopover = document.getElementById("sport-popover");
-  const sportNavBtn  = document.getElementById("sport-nav-btn");
-  sportNavBtn.addEventListener("click", e => {
-    e.stopPropagation();
-    const isOpen = !sportPopover.classList.contains("hidden");
-    sportPopover.classList.toggle("hidden", isOpen);
-    sportNavBtn.setAttribute("aria-expanded", String(!isOpen));
-  });
-  document.querySelectorAll(".sport-pop-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      state.activeSport      = btn.dataset.sport;
-      state.activeLeague     = "all";
-      state.activeSignalType = "all";
-      state.teamSearch       = "";
-      document.getElementById("team-search").value = "";
-      document.getElementById("team-search-mobile").value = "";
-      sportPopover.classList.add("hidden");
-      sportNavBtn.setAttribute("aria-expanded", "false");
-      updateFilterUI();
-      renderSignalsPanel();
-      resetHistoryPagination();
-    });
-  });
-  document.addEventListener("click", e => {
-    if (!sportNavBtn.contains(e.target) && !sportPopover.contains(e.target)) {
-      sportPopover.classList.add("hidden");
-      sportNavBtn.setAttribute("aria-expanded", "false");
-    }
-  });
+      setMainTab(btn.dataset.main);
+      if (btn.dataset.main === "analytics") refreshAnalytics();
+    })
+  );
 
   // Desktop team search
   document.getElementById("team-search").addEventListener("input", e => {
     state.teamSearch = e.target.value.trim();
     updateFilterBadge();
     renderSignalsPanel();
-    resetHistoryPagination();
+    resetAndRefresh();
   });
 
   // Mobile team search (header)
@@ -320,11 +320,16 @@ async function init() {
     document.getElementById("team-search").value = state.teamSearch;
     updateFilterBadge();
     renderSignalsPanel();
-    resetHistoryPagination();
+    resetAndRefresh();
   });
 
   // Chip remove (delegated on both chip containers)
   function removeFilterChip(key) {
+    if (key === "sport") {
+      state.activeSport      = "all";
+      state.activeLeague     = "all";
+      state.activeSignalType = "all";
+    }
     if (key === "league")      { state.activeLeague      = "all"; }
     if (key === "signaltype")  { state.activeSignalType  = "all"; }
     if (key === "team")        {
@@ -332,11 +337,12 @@ async function init() {
       document.getElementById("team-search").value = "";
       document.getElementById("team-search-mobile").value = "";
     }
-    if (key === "datesignals") { state.activeDateSignals = "all"; }
     if (key === "datehist")    { state.activeDateHist    = "all"; }
+    if (key === "analyticsdate")  { state.analyticsActiveDateRange = "all"; }
     updateFilterUI();
-    renderSignalsPanel();
-    resetHistoryPagination();
+    renderBurgerDrawerPills();
+    if (state.mainTab === "analytics") refreshAnalytics();
+    else { renderSignalsPanel(); resetAndRefresh(); }
   }
   ["active-filter-chips", "active-filter-chips-mobile"].forEach(id => {
     const el = document.getElementById(id);

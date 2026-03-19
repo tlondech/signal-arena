@@ -1,3 +1,4 @@
+import difflib
 import json
 import logging
 import math
@@ -73,10 +74,69 @@ def load_team_name_map(path: str) -> dict[str, dict[str, str]]:
     Loads the Winamax→API-Football name mapping from JSON.
     Returns a nested dict keyed by league_key.
     Top-level keys starting with '_' (metadata) are ignored.
+    Raises ValueError on duplicate keys so CI catches copy-paste errors.
     """
+    def _raise_on_duplicates(pairs):
+        result = {}
+        for k, v in pairs:
+            if k in result:
+                raise ValueError(f"Duplicate key in team_name_map.json: {k!r}")
+            result[k] = v
+        return result
+
     with open(path, encoding="utf-8") as f:
-        raw = json.load(f)
+        raw = json.load(f, object_pairs_hook=_raise_on_duplicates)
     return {k: v for k, v in raw.items() if not k.startswith("_")}
+
+
+def auto_patch_name_map(
+    league_key: str,
+    winamax_names: set[str],
+    espn_names: set[str],
+    name_map: dict,
+    map_path: str,
+    threshold: float = 0.85,
+) -> int:
+    """Fuzzy-match unmapped Winamax names against known ESPN names for a league.
+
+    For each Winamax name that has no entry in name_map[league_key], attempts a
+    fuzzy match against ``espn_names``.  Matches with a ratio >= ``threshold`` are
+    written back to the JSON file and into the live ``name_map`` dict so the
+    current run can use them immediately.
+
+    Returns the number of new mappings added.
+    """
+    league_dict = name_map.setdefault(league_key, {})
+    new_entries: dict[str, str] = {}
+
+    for winamax_name in winamax_names:
+        if winamax_name in league_dict:
+            continue
+        matches = difflib.get_close_matches(winamax_name, espn_names, n=1, cutoff=threshold)
+        if not matches:
+            continue
+        espn_name = matches[0]
+        if espn_name == winamax_name:
+            continue  # identity — no mapping needed
+        new_entries[winamax_name] = espn_name
+        logger.info(
+            "[name-map] Auto-resolved '%s' → '%s' (league '%s')",
+            winamax_name, espn_name, league_key,
+        )
+
+    if not new_entries:
+        return 0
+
+    league_dict.update(new_entries)
+
+    with open(map_path, encoding="utf-8") as f:
+        raw = json.load(f)
+    raw.setdefault(league_key, {}).update(new_entries)
+    raw["_meta"]["last_updated"] = __import__("datetime").date.today().isoformat()
+    with open(map_path, "w", encoding="utf-8") as f:
+        json.dump(raw, f, indent=2, ensure_ascii=False)
+
+    return len(new_entries)
 
 
 def resolve_team_name(winamax_name: str, name_map: dict, league_key: str) -> str | None:

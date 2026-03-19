@@ -98,12 +98,6 @@ export const SIGNAL_TYPES = {
     { key: "spread_away_", label: "Spread (Away)" },
   ],
 };
-const DATE_RANGES_SIGNALS = [
-  { key: "all",      label: "All" },
-  { key: "today",    label: "Today" },
-  { key: "tomorrow", label: "Tomorrow" },
-  { key: "week",     label: "This week" },
-];
 const DATE_RANGES_HIST = [
   { key: "all", label: "All time" },
   { key: "7d",  label: "Last 7 days" },
@@ -380,10 +374,10 @@ export function renderCard(m, opts = {}) {
       <table class="w-full text-sm table-fixed">
         <thead>
           <tr class="text-xs text-gray-400 uppercase">
-            <th class="w-[32%] pb-1 pr-2 text-left font-medium"><span class="inline-flex items-center">Signal${infoIcon("The outcome with the highest model edge")}</span></th>
-            <th class="pb-1 pr-2 text-right font-medium"><span class="inline-flex items-center justify-end">Odds${infoIcon("Decimal odds offered by the bookmaker")}</span></th>
-            <th class="pb-1 pr-2 text-right font-medium"><span class="inline-flex items-center justify-end">Prob${infoIcon("Model's estimated probability of this outcome")}</span></th>
-            <th class="pb-1 text-right font-medium"><span class="inline-flex items-center justify-end">EV${infoIcon("Expected value — gain per €1 staked if the model is right. Green = good value, yellow/red = high edge, verify odds first")}</span></th>
+            <th class="w-[34%] pb-1 pr-2 text-left font-medium">Signal<span class="hidden md:inline-flex">${infoIcon("The outcome with the highest model edge")}</span></th>
+            <th class="w-[20%] pb-1 pr-2 text-right font-medium">Odds<span class="hidden md:inline-flex">${infoIcon("Decimal odds offered by the bookmaker")}</span></th>
+            <th class="w-[21%] pb-1 pr-2 text-right font-medium">Prob<span class="hidden md:inline-flex">${infoIcon("Model's estimated probability of this outcome")}</span></th>
+            <th class="w-[25%] pb-1 text-right font-medium">EV<span class="hidden md:inline-flex">${infoIcon("Expected value — gain per €1 staked if the model is right. Green = good value, yellow/red = high edge, verify odds first")}</span></th>
           </tr>
         </thead>
         <tbody>${signalsRows}</tbody>
@@ -393,44 +387,10 @@ export function renderCard(m, opts = {}) {
   </div>`;
 }
 
-// ── Sport pills ────────────────────────────────────────────────
+// ── Sport pills (now rendered inside the burger drawer by renderBurgerDrawerPills) ──
 export function renderSportPills() {
-  document.getElementById("sport-pills").innerHTML = `
-    <div class="grid grid-cols-3 w-full md:w-auto rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden text-sm font-medium">
-      ${SPORTS.map((s, i) => {
-        const isActive = state.activeSport === s.key;
-        const border = i > 0 ? "border-l border-gray-300 dark:border-gray-700" : "";
-        const cls = isActive
-          ? "bg-indigo-600 text-white"
-          : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800";
-        return `<button class="sport-pill w-full inline-flex items-center justify-center whitespace-nowrap px-2 py-1.5 transition-colors ${border} ${cls}" data-sport="${s.key}">${s.label}</button>`;
-      }).join("")}
-    </div>`;
-  document.querySelectorAll(".sport-pill").forEach(btn => {
-    btn.addEventListener("click", () => {
-      state.activeSport   = btn.dataset.sport;
-      state.activeLeague  = "all";
-      state.activeSignalType = "all";
-      state.teamSearch    = "";
-      document.getElementById("team-search").value = "";
-      updateFilterUI();
-      renderSignalsPanel();
-      resetHistoryPagination();
-    });
-  });
-  updateSportNavBtn();
-}
-
-export function updateSportNavBtn() {
-  const icon = document.getElementById("sport-nav-icon");
-  if (icon) icon.textContent = SPORT_EMOJI[state.activeSport] || "⚽️";
-  document.querySelectorAll(".sport-pop-btn").forEach(btn => {
-    const isActive = btn.dataset.sport === state.activeSport;
-    btn.className = "sport-pop-btn flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors "
-      + (isActive
-          ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium"
-          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800");
-  });
+  // Sport pills live in #sport-pills-drawer; renderBurgerDrawerPills() handles rendering.
+  // This stub is kept so call-sites in renderSignalsPanel() don't break.
 }
 
 // ── League pills ───────────────────────────────────────────────
@@ -461,18 +421,15 @@ export function renderLeaguePills(matches) {
   });
 }
 
-// ── Date range pills ───────────────────────────────────────────
+// ── Date range pills / select ──────────────────────────────────
 export function renderDatePills() {
+  // Sync the standalone date <select> (desktop action bar) with current state
+  const sel = document.getElementById("date-select");
+  if (sel && sel.value !== state.activeDateSignals) sel.value = state.activeDateSignals;
+
+  // History date pills (live in the burger drawer)
   const active   = "bg-indigo-600 text-white";
   const inactive = "border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400";
-
-  document.getElementById("date-signals-pills").innerHTML = DATE_RANGES_SIGNALS.map(t =>
-    `<button class="date-signals-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeDateSignals === t.key ? active : inactive}" data-range="${t.key}">${t.label}</button>`
-  ).join("");
-  document.querySelectorAll(".date-signals-pill").forEach(btn => {
-    btn.addEventListener("click", () => { state.activeDateSignals = btn.dataset.range; updateFilterUI(); renderSignalsPanel(); });
-  });
-
   document.getElementById("date-hist-pills").innerHTML = DATE_RANGES_HIST.map(t =>
     `<button class="date-hist-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeDateHist === t.key ? active : inactive}" data-range="${t.key}">${t.label}</button>`
   ).join("");
@@ -484,7 +441,7 @@ export function renderDatePills() {
 // ── Signal-type pills ─────────────────────────────────────────
 export function renderSignalTypePills() {
   const container = document.getElementById("signal-type-pills");
-  const section   = container.closest("div[class]");
+  const section   = document.getElementById("signal-type-section");
   const types     = SIGNAL_TYPES[state.activeSport];
   if (!types) {
     section.classList.add("hidden");
@@ -507,94 +464,109 @@ export function renderSignalTypePills() {
   });
 }
 
-// ── Burger drawer pill mirror ──────────────────────────────────
+// ── Burger drawer pills (context-aware per tab) ────────────────
 export function renderBurgerDrawerPills() {
-  // League
-  const leagueSrc  = document.getElementById("league-pills");
-  const leagueDest = document.getElementById("league-pills-mobile");
-  if (leagueSrc && leagueDest) {
-    leagueDest.innerHTML = leagueSrc.innerHTML;
-    leagueDest.querySelectorAll("[data-league]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        state.activeLeague = btn.dataset.league;
-        updateFilterUI();
-        renderSignalsPanel();
-        resetHistoryPagination();
-        renderBurgerDrawerPills();
+  const isAnalytics = state.mainTab === "analytics";
+
+  // Show/hide sections based on active tab
+  document.getElementById("drawer-signals-history-section")?.classList.toggle("hidden", isAnalytics);
+  document.getElementById("drawer-analytics-section")?.classList.toggle("hidden", !isAnalytics);
+
+  // Sport pills — different state and behavior per context
+  const sportEl = document.getElementById("sport-pills-drawer");
+  if (sportEl) {
+    const pillBase = "flex-none px-3 py-1 rounded-full text-sm font-medium transition-colors";
+    const activeCls   = `${pillBase} bg-indigo-600 text-white`;
+    const inactiveCls = `${pillBase} border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400`;
+
+    if (isAnalytics) {
+      const opts = [{ key: "all", label: "All Sports" }, ...SPORTS];
+      sportEl.innerHTML = opts.map(s => {
+        const cls = state.activeSport === s.key ? activeCls : inactiveCls;
+        return `<button class="analytics-sport-btn ${cls}" data-sport="${s.key}">${s.label}</button>`;
+      }).join("");
+      // Analytics sport pill clicks handled by event delegation in analytics.js
+    } else {
+      const sportOpts = [{ key: "all", label: "All Sports" }, ...SPORTS];
+      sportEl.innerHTML = sportOpts.map(s => {
+        const cls = state.activeSport === s.key ? activeCls : inactiveCls;
+        return `<button class="sport-pill ${cls}" data-sport="${s.key}">${s.label}</button>`;
+      }).join("");
+      sportEl.querySelectorAll(".sport-pill").forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.activeSport      = btn.dataset.sport;
+          state.activeLeague     = "all";
+          state.activeSignalType = "all";
+          state.teamSearch       = "";
+          const ts  = document.getElementById("team-search");
+          const tsm = document.getElementById("team-search-mobile");
+          if (ts)  ts.value  = "";
+          if (tsm) tsm.value = "";
+          updateFilterUI();
+          renderSignalsPanel();
+          resetHistoryPagination();
+          renderBurgerDrawerPills();
+        });
       });
-    });
+    }
   }
-  // Signal type
-  const btSrc  = document.getElementById("signal-type-pills");
-  const btDest = document.getElementById("signal-type-pills-mobile");
-  if (btSrc && btDest) {
-    btDest.innerHTML = btSrc.innerHTML;
-    btDest.querySelectorAll("[data-type]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        state.activeSignalType = btn.dataset.type;
-        updateFilterUI();
-        renderSignalsPanel();
-        resetHistoryPagination();
-        renderBurgerDrawerPills();
-      });
-    });
+
+  // Analytics date range pills
+  if (isAnalytics) {
+    const dateEl = document.getElementById("analytics-date-pills-drawer");
+    if (dateEl) {
+      const pillBase = "flex-none px-3 py-1 rounded-full text-sm font-medium transition-colors";
+      const activeCls   = `${pillBase} bg-indigo-600 text-white`;
+      const inactiveCls = `${pillBase} border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400`;
+      const ranges = [
+        { key: "all", label: "All time" },
+        { key: "30d", label: "30d" },
+        { key: "3m",  label: "3m" },
+        { key: "6m",  label: "6m" },
+      ];
+      dateEl.innerHTML = ranges.map(r => {
+        const cls = state.analyticsActiveDateRange === r.key ? activeCls : inactiveCls;
+        return `<button class="analytics-date-btn ${cls}" data-range="${r.key}">${r.label}</button>`;
+      }).join("");
+      // Analytics date pill clicks handled by event delegation in analytics.js
+    }
   }
-  // Date (signals)
-  const dbSrc  = document.getElementById("date-signals-pills");
-  const dbDest = document.getElementById("date-signals-pills-mobile");
-  if (dbSrc && dbDest) {
-    dbDest.innerHTML = dbSrc.innerHTML;
-    dbDest.querySelectorAll("[data-range]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        state.activeDateSignals = btn.dataset.range;
-        updateFilterUI();
-        renderSignalsPanel();
-        renderBurgerDrawerPills();
-      });
-    });
-  }
-  // Date (history)
-  const dhSrc  = document.getElementById("date-hist-pills");
-  const dhDest = document.getElementById("date-hist-pills-mobile");
-  if (dhSrc && dhDest) {
-    dhDest.innerHTML = dhSrc.innerHTML;
-    dhDest.querySelectorAll("[data-range]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        state.activeDateHist = btn.dataset.range;
-        updateFilterUI();
-        resetHistoryPagination();
-        renderBurgerDrawerPills();
-      });
-    });
-  }
-  // Show correct date section for current tab
-  const dbSection = document.getElementById("date-signals-section-mobile");
-  const dhSection = document.getElementById("date-hist-section-mobile");
-  if (dbSection) dbSection.classList.toggle("hidden", state.mainTab !== "signals");
-  if (dhSection) dhSection.classList.toggle("hidden", state.mainTab !== "history");
 }
 
 // ── Filter UI (badge + chips) ──────────────────────────────────
 export function updateFilterUI() {
   const active = [];
-  if (state.activeLeague !== "all") {
-    const row = [...state.signalsData, ...state.histData].find(r => r.league_key === state.activeLeague);
-    active.push({ key: "league", label: LEAGUE_SHORT_NAMES[state.activeLeague] || (row ? row.league_name : state.activeLeague) });
-  }
-  if (state.activeSignalType !== "all") {
-    const bt = (SIGNAL_TYPES[state.activeSport] || []).find(t => t.key === state.activeSignalType);
-    active.push({ key: "signaltype", label: bt ? bt.label : state.activeSignalType });
-  }
-  if (state.teamSearch) {
-    active.push({ key: "team", label: `"${state.teamSearch}"` });
-  }
-  if (state.activeDateSignals !== "all") {
-    const r = DATE_RANGES_SIGNALS.find(t => t.key === state.activeDateSignals);
-    active.push({ key: "datesignals", label: r ? r.label : state.activeDateSignals });
-  }
-  if (state.activeDateHist !== "all") {
-    const r = DATE_RANGES_HIST.find(t => t.key === state.activeDateHist);
-    active.push({ key: "datehist", label: r ? r.label : state.activeDateHist });
+
+  if (state.mainTab === "analytics") {
+    // Analytics tab: sport (shared) + date range
+    if (state.activeSport !== "all") {
+      const s = SPORTS.find(x => x.key === state.activeSport);
+      active.push({ key: "sport", label: s ? s.label : state.activeSport });
+    }
+    if (state.analyticsActiveDateRange !== "all") {
+      active.push({ key: "analyticsdate", label: state.analyticsActiveDateRange });
+    }
+  } else {
+    // Signals / History tabs
+    if (state.activeSport !== "all") {
+      const s = SPORTS.find(x => x.key === state.activeSport);
+      active.push({ key: "sport", label: s ? s.label : state.activeSport });
+    }
+    if (state.activeLeague !== "all") {
+      const row = [...state.signalsData, ...state.histData].find(r => r.league_key === state.activeLeague);
+      active.push({ key: "league", label: LEAGUE_SHORT_NAMES[state.activeLeague] || (row ? row.league_name : state.activeLeague) });
+    }
+    if (state.activeSignalType !== "all") {
+      const bt = (SIGNAL_TYPES[state.activeSport] || []).find(t => t.key === state.activeSignalType);
+      active.push({ key: "signaltype", label: bt ? bt.label : state.activeSignalType });
+    }
+    if (state.teamSearch) {
+      active.push({ key: "team", label: `"${state.teamSearch}"` });
+    }
+    if (state.activeDateHist !== "all") {
+      const r = DATE_RANGES_HIST.find(t => t.key === state.activeDateHist);
+      active.push({ key: "datehist", label: r ? r.label : state.activeDateHist });
+    }
   }
   const count = active.length;
 
@@ -622,19 +594,40 @@ export const updateFilterBadge = updateFilterUI;
 
 // ── Main tab switching ─────────────────────────────────────────
 export function setMainTab(tab) {
-  if (tab === "history") state.activeDateSignals = "all";
-  else                   state.activeDateHist = "all";
+  // Clear filters that don't exist on the target tab (sport persists across all tabs)
+  if (tab === "analytics") {
+    state.activeLeague      = "all";
+    state.activeSignalType  = "all";
+    state.teamSearch        = "";
+    state.activeDateSignals = "today";
+    state.activeDateHist    = "all";
+    const ts  = document.getElementById("team-search");
+    const tsm = document.getElementById("team-search-mobile");
+    if (ts)  ts.value  = "";
+    if (tsm) tsm.value = "";
+  } else if (tab === "history") {
+    state.activeLeague             = "all";
+    state.activeSignalType         = "all";
+    state.activeDateSignals        = "today";
+    state.analyticsActiveDateRange = "all";
+  } else if (tab === "signals") {
+    state.activeDateHist           = "all";
+    state.analyticsActiveDateRange = "all";
+  }
 
   state.mainTab = tab;
   document.getElementById("panel-signals").classList.toggle("hidden", tab !== "signals");
   document.getElementById("panel-history").classList.toggle("hidden", tab !== "history");
-  document.getElementById("date-signals-section").classList.toggle("hidden", tab !== "signals");
-  document.getElementById("date-hist-section").classList.toggle("hidden", tab !== "history");
+  document.getElementById("panel-analytics").classList.toggle("hidden", tab !== "analytics");
+  // date-select is in the desktop action bar (signals tab only)
+  document.getElementById("date-select")?.classList.toggle("hidden", tab !== "signals");
+  // date history pills live in the burger drawer
+  document.getElementById("date-hist-section")?.classList.toggle("hidden", tab !== "history");
 
   document.querySelectorAll(".main-tab-btn").forEach(btn => {
     const isActive = btn.dataset.main === tab;
     const base = btn.closest("nav")
-      ? "main-tab-btn px-3 py-1.5 text-sm font-medium rounded-lg border-b-2 transition-colors"
+      ? "main-tab-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border-b-2 transition-colors"
       : "main-tab-btn px-4 py-2 text-sm font-medium border-b-2 transition-colors";
     btn.className = [
       base,
@@ -672,7 +665,7 @@ export function showError(msg) {
 
 // ── Render signals panel ───────────────────────────────────────
 export function renderSignalsPanel() {
-  const allMatches = groupIntoMatches(state.signalsData).filter(m => m.sport === state.activeSport);
+  const allMatches = groupIntoMatches(state.signalsData).filter(m => state.activeSport === "all" || m.sport === state.activeSport);
   renderSportPills();
   renderLeaguePills(allMatches);
   renderSignalTypePills();
@@ -698,16 +691,15 @@ export function renderSignalsPanel() {
   }
 
   if (state.activeDateSignals !== "all") {
-    const tz       = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const today    = new Date(new Date().toLocaleDateString("en-CA", { timeZone: tz }));
-    const tomorrow = new Date(today.getTime() + 864e5);
-    const dayAfter = new Date(today.getTime() + 2 * 864e5);
-    const weekEnd  = new Date(today.getTime() + 7 * 864e5);
+    const tz      = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const todayD  = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+    const tmrwD   = new Date(Date.now() + 864e5).toLocaleDateString("en-CA", { timeZone: tz });
+    const weekEndD = new Date(Date.now() + 7 * 864e5).toLocaleDateString("en-CA", { timeZone: tz });
     filtered = filtered.filter(m => {
-      const ko = new Date(m.kickoff);
-      if (state.activeDateSignals === "today")    return ko >= today    && ko < tomorrow;
-      if (state.activeDateSignals === "tomorrow") return ko >= tomorrow && ko < dayAfter;
-      if (state.activeDateSignals === "week")     return ko >= today    && ko < weekEnd;
+      const d = new Date(m.kickoff).toLocaleDateString("en-CA", { timeZone: tz });
+      if (state.activeDateSignals === "today")    return d === todayD;
+      if (state.activeDateSignals === "tomorrow") return d === tmrwD;
+      if (state.activeDateSignals === "week")     return d >= todayD && d <= weekEndD;
       return true;
     });
   }
@@ -728,9 +720,19 @@ export function renderSignalsPanel() {
     return;
   }
 
+  const tz       = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+  const tmrwStr  = new Date(Date.now() + 864e5).toLocaleDateString("en-CA", { timeZone: tz });
+  function dayLabel(iso) {
+    const d = new Date(iso).toLocaleDateString("en-CA", { timeZone: tz });
+    if (d === todayStr) return "Today";
+    if (d === tmrwStr)  return "Tomorrow";
+    return fmtDate(iso);
+  }
+
   const byDate = new Map();
   for (const m of filtered) {
-    const d = fmtDate(m.kickoff);
+    const d = dayLabel(m.kickoff);
     if (!byDate.has(d)) byDate.set(d, []);
     byDate.get(d).push(m);
   }
@@ -766,10 +768,10 @@ export function updateStatsGrid(filteredData) {
     : "—";
 
   const winRateColor = settled
-    ? (wins.length >= expectedWins ? "text-green-500" : "text-red-500")
+    ? (wins.length >= losses.length ? "text-green-500" : "text-red-500")
     : "";
   const winRateHtml = settled
-    ? `<span class="${winRateColor}">${(wins.length / settled * 100).toFixed(1)}%</span>`
+    ? `<span class="${winRateColor}">${losses.length ? (wins.length / losses.length * 100).toFixed(1) : "∞"}%</span>`
     : "—";
 
   const pnl    = wins.reduce((s, r)   => s + (r.odds - 1) * stakeFor(r.odds), 0)
@@ -944,23 +946,11 @@ export async function resetHistoryPagination() {
   updateHistoryCountUI();
 }
 
-// ── Filter drawer (desktop right-side) ────────────────────────
-export function openDrawer() {
-  document.getElementById("filter-drawer").classList.add("open");
-  document.getElementById("filter-backdrop").classList.add("open");
-  document.body.style.overflow = "hidden";
-}
-export function closeDrawer() {
-  document.getElementById("filter-drawer").classList.remove("open");
-  document.getElementById("filter-backdrop").classList.remove("open");
-  document.body.style.overflow = "";
-}
-
-// ── Burger drawer (mobile left-side) ──────────────────────────
+// ── Burger drawer (all viewports) ─────────────────────────────
 export function openBurgerDrawer() {
   document.getElementById("burger-drawer").classList.add("open");
   document.getElementById("filter-backdrop").classList.add("open");
-  document.getElementById("burger-btn").setAttribute("aria-expanded", "true");
+  document.getElementById("burger-btn")?.setAttribute("aria-expanded", "true");
   state.burgerDrawerOpen = true;
   document.body.style.overflow = "hidden";
   renderBurgerDrawerPills();
@@ -968,7 +958,7 @@ export function openBurgerDrawer() {
 export function closeBurgerDrawer() {
   document.getElementById("burger-drawer").classList.remove("open");
   document.getElementById("filter-backdrop").classList.remove("open");
-  document.getElementById("burger-btn").setAttribute("aria-expanded", "false");
+  document.getElementById("burger-btn")?.setAttribute("aria-expanded", "false");
   state.burgerDrawerOpen = false;
   document.body.style.overflow = "";
 }

@@ -74,6 +74,8 @@ _stream_handler = logging.StreamHandler()
 _stream_handler.setFormatter(_ColoredFormatter(_FMT, datefmt=_DATE))
 
 logging.basicConfig(level=logging.INFO, handlers=[_file_handler, _stream_handler])
+for _noisy in ("httpx", "httpcore", "h2", "hpack"):
+    logging.getLogger(_noisy).setLevel(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 

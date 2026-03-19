@@ -100,7 +100,19 @@ def fetch_league_data(
             logger.debug("[%s] No upcoming matches with Winamax odds — skipping.", league.key)
             return [], [], {}, {}, None
 
-        # Phase 2: Upsert matches + odds (skip odds for live matches)
+        # Phase 2: For UCL, stamp the competition stage on events before persisting
+        if league.key == "ucl":
+            espn_stage = ESPNSoccerClient()
+            ucl_upcoming = espn_stage.fetch_upcoming_matches(leagues=["ucl"])
+            current_stage = next(
+                (m.metadata["stage"] for m in ucl_upcoming if m.metadata.get("stage")), None,
+            )
+            if current_stage:
+                for event in upcoming_events:
+                    if not event.get("stage"):
+                        event["stage"] = current_stage
+
+        # Phase 3: Upsert matches + odds (skip odds for live matches)
         with Session(engine) as session:
             for event in upcoming_events:
                 upsert_match(session, event, league.key)
@@ -108,7 +120,7 @@ def fetch_league_data(
                     upsert_odds(session, event)
             session.commit()
 
-        # Phase 3: Fetch finished fixtures from ESPN
+        # Phase 4: Fetch finished fixtures from ESPN
         espn = ESPNSoccerClient()
         season_start = date(season, 7, 1)
         raw_fixtures = espn.fetch_fixtures(season_start, date.today(), leagues=[league.key])
@@ -138,8 +150,13 @@ def fetch_league_data(
         except Exception as e:
             logger.debug("[%s] Could not fetch prior-season fixtures (%d): %s", league.key, prior_season, e)
 
+        # Auto-resolve unmapped Winamax names against ESPN names for this league
+        from models.features import auto_patch_name_map, resolve_team_name
+        winamax_names = {ev["home_team"] for ev in upcoming_events} | {ev["away_team"] for ev in upcoming_events}
+        espn_names    = {f["home_team"] for f in raw_fixtures} | {f["away_team"] for f in raw_fixtures}
+        auto_patch_name_map(league.key, winamax_names, espn_names, name_map, cfg.team_map_path)
+
         # Build crest map from ESPN logo URLs and persist to JSON
-        from models.features import resolve_team_name
         p = Path(cfg.football_crest_map_path)
         crest_map = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
         for f in raw_fixtures:
@@ -170,5 +187,18 @@ def fetch_league_data(
                 league.key,
             )
             return [], [], {}, {}, None
+
+    # Build stage_map for UCL from completed fixtures (both directions to cover Leg 2 reversals)
+    if league.key == "ucl":
+        from models.features import resolve_team_name
+        for f in raw_fixtures:
+            stage = f.get("stage")
+            if not stage:
+                continue
+            home_c = resolve_team_name(f["home_team"], name_map, league.key)
+            away_c = resolve_team_name(f["away_team"], name_map, league.key)
+            if home_c and away_c:
+                stage_map[f"{home_c}|{away_c}"] = stage
+                stage_map[f"{away_c}|{home_c}"] = stage
 
     return upcoming_events, raw_fixtures, stage_map, crest_map, odds_client

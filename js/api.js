@@ -22,7 +22,7 @@ export async function fetchPendingSignals() {
     .lt("kickoff", new Date().toISOString())
     .order("kickoff", { ascending: false });
 
-  q = q.eq("sport", state.activeSport);
+  if (state.activeSport      !== "all") q = q.eq("sport",      state.activeSport);
   if (state.activeLeague     !== "all") q = q.eq("league_key", state.activeLeague);
   if (state.activeSignalType !== "all") q = q.eq("outcome",    state.activeSignalType);
   if (state.teamSearch)                 q = q.or(`home_team.ilike.%${state.teamSearch}%,away_team.ilike.%${state.teamSearch}%`);
@@ -31,6 +31,33 @@ export async function fetchPendingSignals() {
     const since = new Date(Date.now() - days * 864e5).toISOString();
     q = q.gte("kickoff", since);
   }
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
+
+// ── Fetch all settled history for analytics (capped at 365 days) ─
+export async function fetchAllHistory() {
+  const floor = new Date(Date.now() - 365 * 864e5);
+
+  let q = sb
+    .from("signal_history")
+    .select("*")
+    .eq("settled", true)
+    .order("kickoff", { ascending: true });
+
+  if (state.activeSport !== "all") q = q.eq("sport", state.activeSport);
+
+  let since = floor;
+  if (state.analyticsActiveDateRange !== "all") {
+    const days        = state.analyticsActiveDateRange === "30d" ? 30
+                      : state.analyticsActiveDateRange === "3m"  ? 90
+                      : 180; // "6m"
+    const filterFloor = new Date(Date.now() - days * 864e5);
+    if (filterFloor > floor) since = filterFloor;
+  }
+  q = q.gte("kickoff", since.toISOString());
 
   const { data, error } = await q;
   if (error) throw error;
@@ -49,7 +76,7 @@ export async function fetchHistoryPage(page = 0) {
     .order("kickoff", { ascending: false })
     .range(from, to);
 
-  q = q.eq("sport", state.activeSport);
+  if (state.activeSport      !== "all") q = q.eq("sport",      state.activeSport);
 
   if (state.activeLeague     !== "all") q = q.eq("league_key", state.activeLeague);
   if (state.activeSignalType !== "all") q = q.eq("outcome",    state.activeSignalType);

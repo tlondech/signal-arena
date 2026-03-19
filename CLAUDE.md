@@ -28,7 +28,7 @@ main.py → pipeline/ → extractors/ + models/ → db/ + notifications/
 Plain ES modules, no bundler. Files in `js/`: `app.js`, `ui.js`, `api.js`, `state.js`, `config.js`. Served directly from `index.html`. Supabase is the data source at runtime.
 
 ## Data files
-- `data/team_name_map.json` — Winamax → canonical name mapping (football + NBA); edit manually to fix name mismatches
+- `data/team_name_map.json` — Winamax → canonical name mapping (football + NBA); edit manually to fix name mismatches. Always update `_meta.last_updated` to today's date when editing this file.
 - `data/football_crest_map.json`, `tennis_crest_map.json`, `nba_crest_map.json` — logo/flag URLs (tennis map is auto-updated each run)
 - `data/signals.db` — SQLite; never commit this
 

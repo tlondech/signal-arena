@@ -4,7 +4,7 @@ Supabase client and remote persistence operations.
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import cast
 
 from supabase import create_client, Client
@@ -57,6 +57,20 @@ def _last_name(name: str) -> str:
     return name.strip().split()[-1].lower() if name.strip() else ""
 
 
+def _name_matches(a: str, b: str) -> bool:
+    """True if two player name strings refer to the same person.
+
+    Handles standard last-name comparison and reversed name order (e.g.
+    "Shuai Zhang" vs "Zhang Shuai" used by ESPN for Chinese players).
+    """
+    if not a.strip() or not b.strip():
+        return False
+    if _last_name(a) == _last_name(b):
+        return True
+    # Reversed order: check if any word in a appears in b's words
+    return bool(set(a.strip().lower().split()) & set(b.strip().lower().split()))
+
+
 def _tennis_sets(matched, home: str) -> tuple[int | None, int | None]:
     """Returns (home_sets, away_sets) from a MatchData or dict, or (None, None) on failure.
 
@@ -76,7 +90,7 @@ def _tennis_sets(matched, home: str) -> tuple[int | None, int | None]:
         parsed = [s.split("(")[0].split("-") for s in score.split()]
         winner_sets = sum(1 for w, l in parsed if int(w) > int(l))
         loser_sets  = len(parsed) - winner_sets
-        home_winner = _last_name(home_name) == _last_name(home)
+        home_winner = _name_matches(home_name, home)
         return (winner_sets, loser_sets) if home_winner else (loser_sets, winner_sets)
     except (ValueError, IndexError):
         return None, None
@@ -285,9 +299,9 @@ def settle_tennis_supabase_signals(supabase: Client) -> int:
             r_kickoff = r.kickoff if r.kickoff.tzinfo else r.kickoff.replace(tzinfo=timezone.utc)
             if abs((r_kickoff - kickoff_dt).total_seconds()) > 2 * 86400:
                 continue
-            # Match by last name (handles minor name format differences)
-            players = {_last_name(r.home_team), _last_name(r.away_team)}
-            if _last_name(home) in players and _last_name(away) in players:
+            # Match by name (handles minor format differences and reversed order)
+            if (_name_matches(home, r.home_team) or _name_matches(home, r.away_team)) and \
+               (_name_matches(away, r.home_team) or _name_matches(away, r.away_team)):
                 matched = r
                 break
 
@@ -296,8 +310,8 @@ def settle_tennis_supabase_signals(supabase: Client) -> int:
             continue
 
         won = (
-            (row["outcome"] == "home_win" and _last_name(matched.home_team) == _last_name(home)) or
-            (row["outcome"] == "away_win" and _last_name(matched.home_team) == _last_name(away))
+            (row["outcome"] == "home_win" and _name_matches(matched.home_team, home)) or
+            (row["outcome"] == "away_win" and _name_matches(matched.home_team, away))
         )
 
         home_sets, away_sets = _tennis_sets(matched, home)
@@ -340,8 +354,8 @@ def settle_tennis_supabase_signals(supabase: Client) -> int:
                     match_dt = match_dt.replace(tzinfo=timezone.utc)
                 if abs((match_dt - kickoff_dt).total_seconds()) > 2 * 86400:
                     continue
-                players = {_last_name(r["winner"]), _last_name(r["loser"])}  # co.uk schema unchanged
-                if _last_name(home) in players and _last_name(away) in players:
+                if (_name_matches(home, r["winner"]) or _name_matches(home, r["loser"])) and \
+                   (_name_matches(away, r["winner"]) or _name_matches(away, r["loser"])):
                     matched_couk = r
                     break
 
@@ -349,8 +363,8 @@ def settle_tennis_supabase_signals(supabase: Client) -> int:
                 continue
 
             won = (
-                (row["outcome"] == "home_win" and _last_name(matched_couk["winner"]) == _last_name(home)) or
-                (row["outcome"] == "away_win" and _last_name(matched_couk["winner"]) == _last_name(away))
+                (row["outcome"] == "home_win" and _name_matches(matched_couk["winner"], home)) or
+                (row["outcome"] == "away_win" and _name_matches(matched_couk["winner"], away))
             )
             rows_to_update.append({
                 "id":         row["id"],

@@ -15,17 +15,47 @@ from extractors.espn_client import ESPNClient
 
 logger = logging.getLogger(__name__)
 
+# Maps ESPN season slugs to short display labels (UCL only — other leagues have no stage)
+_UCL_STAGE_LABELS: dict[str, str] = {
+    "league-phase":              "League",
+    "knockout-round-playoffs":   "Playoffs",
+    "round-of-16":               "R16",
+    "quarterfinals":             "QF",
+    "semifinals":                "SF",
+    "final":                     "Final",
+}
+
 
 class ESPNSoccerClient(ESPNClient):
     SPORT = "soccer"
 
     LEAGUE_MAP: dict[str, str] = {
-        "epl":        "eng.1",
-        "laliga":     "esp.1",
-        "bundesliga": "ger.1",
-        "seriea":     "ita.1",
-        "ligue1":     "fra.1",
-        "ucl":        "uefa.champions",
+        # France
+        "ligue1":       "fra.1",
+        "ligue2":       "fra.2",
+        "coupedefrance": "fra.coupe_de_france",
+        # England
+        "epl":          "eng.1",
+        "facup":        "eng.fa",
+        "eflcup":       "eng.league_cup",
+        # Spain
+        "laliga":       "esp.1",
+        "copadelrey":   "esp.copa_del_rey",
+        # Germany
+        "bundesliga":   "ger.1",
+        "dfbpokal":     "ger.dfb_pokal",
+        # Italy
+        "seriea":       "ita.1",
+        "coppaditalia": "ita.coppa_italia",
+        # UEFA
+        "ucl":          "uefa.champions",
+        "uel":          "uefa.europa",
+        "uecl":         "uefa.europa.conf",
+        "uefanations":  "uefa.nations",
+        "euroqual":     "uefa.euroq",
+        # FIFA
+        "worldcup":     "fifa.world",
+        "wcqualeurope": "fifa.worldq.uefa",
     }
 
     def fetch_recent_results(self, days_back: int = 7) -> list[MatchData]:
@@ -33,11 +63,14 @@ class ESPNSoccerClient(ESPNClient):
         today = datetime.now(timezone.utc).date()
         return [_fixture_to_match_data(f) for f in self.fetch_fixtures(today - timedelta(days=days_back), today)]
 
-    def fetch_upcoming_matches(self, days_ahead: int = 7) -> list[MatchData]:
-        """Returns scheduled (not yet completed) fixtures from ESPN."""
+    def fetch_upcoming_matches(self, days_ahead: int = 7, leagues: list[str] | None = None) -> list[MatchData]:
+        """Returns scheduled (not yet completed) fixtures from ESPN.
+
+        Pass ``leagues`` to restrict to a subset of LEAGUE_MAP keys (e.g. ``["ucl"]``).
+        """
         today = datetime.now(timezone.utc).date()
         end = today + timedelta(days=days_ahead)
-        league_keys = list(self.LEAGUE_MAP.keys())
+        league_keys = leagues if leagues is not None else list(self.LEAGUE_MAP.keys())
         matches: list[MatchData] = []
         seen: set[str] = set()
 
@@ -72,6 +105,7 @@ class ESPNSoccerClient(ESPNClient):
                 if fixture_id in seen:
                     continue
                 seen.add(fixture_id)
+                stage_slug = (event.get("season") or {}).get("slug", "")
                 matches.append(MatchData(
                     fixture_id=fixture_id,
                     sport="football",
@@ -80,6 +114,7 @@ class ESPNSoccerClient(ESPNClient):
                     home_team=home_team,
                     away_team=away_team,
                     completed=False,
+                    metadata={"stage": _UCL_STAGE_LABELS[stage_slug]} if league_key == "ucl" and stage_slug in _UCL_STAGE_LABELS else {},
                 ))
         return matches
 
@@ -160,6 +195,7 @@ class ESPNSoccerClient(ESPNClient):
                 if fixture_date.tzinfo is None:
                     fixture_date = fixture_date.replace(tzinfo=timezone.utc)
 
+                stage_slug = (event.get("season") or {}).get("slug", "")
                 fixtures.append({
                     "fixture_id":   fixture_id,
                     "fixture_date": fixture_date,
@@ -172,6 +208,7 @@ class ESPNSoccerClient(ESPNClient):
                     "home_logo":    home_team_data.get("logo"),
                     "away_logo":    away_team_data.get("logo"),
                     "league_key":   league_key,
+                    "stage":        _UCL_STAGE_LABELS.get(stage_slug) if league_key == "ucl" else None,
                 })
                 league_count += 1
 

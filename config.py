@@ -32,9 +32,6 @@ AGG_ATTACK_BOOST  = 0.15   # lambda boost per goal deficit for trailing team
 AGG_DEFEND_FACTOR = 0.05   # lambda penalty per goal lead for leading team
 AGG_MIN_MULT      = 0.85   # floor multiplier for the leading team's attack lambda
 
-UCL_KNOCKOUT_STAGES: frozenset = frozenset({
-    "ROUND_OF_16", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS",
-})
 
 @dataclass
 class LeagueConfig:
@@ -46,13 +43,25 @@ class LeagueConfig:
 
 
 LEAGUES: list[LeagueConfig] = [
-    LeagueConfig("ligue1",     "Ligue 1",          "soccer_france_ligue_one"),
-    LeagueConfig("epl",        "Premier League",   "soccer_epl"),
-    LeagueConfig("laliga",     "La Liga",          "soccer_spain_la_liga"),
-    LeagueConfig("bundesliga", "Bundesliga",       "soccer_germany_bundesliga"),
-    LeagueConfig("seriea",     "Serie A",          "soccer_italy_serie_a"),
-    LeagueConfig("ucl",        "Champions League", "soccer_uefa_champs_league"),
-    LeagueConfig("worldcup",   "World Cup",        "soccer_fifa_world_cup",      season_override=2026),
+    LeagueConfig("ligue1",          "Ligue 1",                   "soccer_france_ligue_one"),
+    LeagueConfig("ligue2",          "Ligue 2",                   "soccer_france_ligue_two"),
+    LeagueConfig("coupedefrance",    "Coupe de France",           "soccer_france_coupe_de_france"),
+    LeagueConfig("epl",             "Premier League",            "soccer_epl"),
+    LeagueConfig("facup",           "FA Cup",                    "soccer_fa_cup"),
+    LeagueConfig("eflcup",          "EFL Cup",                   "soccer_england_efl_cup"),
+    LeagueConfig("laliga",          "La Liga",                   "soccer_spain_la_liga"),
+    LeagueConfig("copadelrey",      "Copa del Rey",              "soccer_spain_copa_del_rey"),
+    LeagueConfig("bundesliga",      "Bundesliga",                "soccer_germany_bundesliga"),
+    LeagueConfig("dfbpokal",        "DFB-Pokal",                 "soccer_germany_dfb_pokal"),
+    LeagueConfig("seriea",          "Serie A",                   "soccer_italy_serie_a"),
+    LeagueConfig("coppaditalia",    "Coppa Italia",              "soccer_italy_coppa_italia"),
+    LeagueConfig("ucl",             "Champions League",          "soccer_uefa_champs_league"),
+    LeagueConfig("uel",             "Europa League",             "soccer_uefa_europa_league"),
+    LeagueConfig("uecl",            "Conference League",         "soccer_uefa_europa_conference_league"),
+    LeagueConfig("uefanations",     "UEFA Nations League",       "soccer_uefa_nations_league"),
+    LeagueConfig("euroqual",        "Euro Qualification",        "soccer_uefa_euro_qualification"),
+    LeagueConfig("worldcup",        "World Cup",                 "soccer_fifa_world_cup",                    season_override=2026),
+    LeagueConfig("wcqualeurope",    "WC Qualifiers Europe",      "soccer_fifa_world_cup_qualifiers_europe"),
     LeagueConfig("nba", "NBA", "basketball_nba", sport_type="basketball"),
 ]
 

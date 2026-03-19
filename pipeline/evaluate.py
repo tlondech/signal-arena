@@ -47,6 +47,11 @@ def build_features(
       universal_names, rankings, total_matchdays, form_map
     """
     fixtures_df = build_fixtures_dataframe(raw_fixtures)
+    # Resolve ESPN displayNames to canonical names so fixture lookups match home_canonical/away_canonical
+    league_map = name_map.get(league.key, {})
+    if league_map:
+        fixtures_df["home_team"] = fixtures_df["home_team"].map(lambda n: league_map.get(n, n))
+        fixtures_df["away_team"] = fixtures_df["away_team"].map(lambda n: league_map.get(n, n))
     league_avgs = compute_league_averages(fixtures_df)
     universal_names = name_map.get("universal_names", {})
     all_fixtures_df = load_all_fixtures_df(engine, universal_names)

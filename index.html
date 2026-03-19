@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Signal Arena</title>
   <link rel="icon" href="/favicon.ico" sizes="any" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'media' }</script>
   <style>
@@ -34,18 +35,6 @@
     th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
     th.sortable:hover { opacity:0.75; }
 
-    /* Filter drawer */
-    #filter-drawer {
-      position:fixed; top:0; right:0; bottom:0; width:min(320px,90vw);
-      background:white; z-index:50;
-      transform:translateX(100%); transition:transform 0.25s ease;
-      display:flex; flex-direction:column;
-      box-shadow:-4px 0 24px rgba(0,0,0,0.12);
-    }
-    @media (prefers-color-scheme: dark) {
-      #filter-drawer { background:#111827; }
-    }
-    #filter-drawer.open { transform:translateX(0); }
     #filter-backdrop {
       position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:49;
       opacity:0; pointer-events:none; transition:opacity 0.25s ease;
@@ -75,25 +64,39 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen overflow-x-hidden">
 
-<!-- ── Burger drawer (slides from LEFT, mobile only) ─────────── -->
-<aside id="burger-drawer" role="dialog" aria-label="Menu" aria-modal="true">
+<!-- ── Burger / filter drawer (slides from LEFT, all viewports) ── -->
+<aside id="burger-drawer" role="dialog" aria-label="Filters" aria-modal="true">
   <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
     <h2 class="text-sm font-semibold">Filters</h2>
     <button id="burger-drawer-close" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 text-lg leading-none">&times;</button>
   </div>
   <div class="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+    <!-- Sport (always shown, content differs per tab) -->
     <div>
-      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">League</p>
-      <div id="league-pills-mobile" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Sport</p>
+      <div id="sport-pills-drawer" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
     </div>
-    <div>
-      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Signal Type</p>
-      <div id="signal-type-pills-mobile" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1"></div>
+    <!-- Signals + History filters -->
+    <div id="drawer-signals-history-section" class="space-y-4">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">League</p>
+        <div id="league-pills" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+      </div>
+      <div id="signal-type-section">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Signal Type</p>
+        <div id="signal-type-pills" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1"></div>
+      </div>
+      <div id="date-hist-section" class="hidden">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Date</p>
+        <div id="date-hist-pills" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1"></div>
+      </div>
     </div>
-    <div>
-      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Date</p>
-      <div id="date-signals-section-mobile"><div id="date-signals-pills-mobile" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div></div>
-      <div id="date-hist-section-mobile" class="hidden"><div id="date-hist-pills-mobile" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1"></div></div>
+    <!-- Analytics filters -->
+    <div id="drawer-analytics-section" class="hidden space-y-4">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Date Range</p>
+        <div id="analytics-date-pills-drawer" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+      </div>
     </div>
   </div>
   <!-- Sticky Reset footer -->
@@ -107,37 +110,6 @@
 
 <!-- ── Filter drawer backdrop (shared) ───────────────────────── -->
 <div id="filter-backdrop"></div>
-
-<!-- ── Filter drawer ─────────────────────────────────────────── -->
-<aside id="filter-drawer" role="dialog" aria-label="Filters" aria-modal="true">
-  <div class="flex items-center justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-700">
-    <h2 class="text-base font-semibold">Filters</h2>
-    <button id="drawer-close" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 text-lg leading-none">&times;</button>
-  </div>
-  <div class="flex-1 overflow-y-auto px-4 py-5 space-y-6">
-    <!-- League -->
-    <div>
-      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">League</p>
-      <div id="league-pills" class="flex flex-wrap gap-2"></div>
-    </div>
-    <!-- Signal type -->
-    <div>
-      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Signal Type</p>
-      <div id="signal-type-pills" class="flex flex-wrap gap-1.5"></div>
-    </div>
-    <!-- Date -->
-    <div>
-      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Date</p>
-      <div id="date-signals-section">
-        <div id="date-signals-pills" class="flex flex-wrap gap-2"></div>
-      </div>
-      <div id="date-hist-section" class="hidden">
-        <div id="date-hist-pills" class="flex flex-wrap gap-1.5"></div>
-      </div>
-    </div>
-
-  </div>
-</aside>
 
 <!-- ── Sticky shell (header + action bar stick together) ────── -->
 <div class="sticky top-0 z-10">
@@ -180,8 +152,18 @@
       </div>
       <div class="flex items-center gap-4">
         <nav class="hidden md:flex items-center gap-1">
-          <button class="main-tab-btn px-3 py-1.5 text-sm font-medium rounded-lg border-b-2 transition-colors" data-main="signals">Signals</button>
-          <button class="main-tab-btn px-3 py-1.5 text-sm font-medium rounded-lg border-b-2 transition-colors" data-main="history">History</button>
+          <button class="main-tab-btn px-3 py-1.5 text-sm font-medium rounded-lg border-b-2 transition-colors inline-flex items-center gap-1.5" data-main="signals">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Signals
+          </button>
+          <button class="main-tab-btn px-3 py-1.5 text-sm font-medium rounded-lg border-b-2 transition-colors inline-flex items-center gap-1.5" data-main="history">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3"/></svg>
+            History
+          </button>
+          <button class="main-tab-btn px-3 py-1.5 text-sm font-medium rounded-lg border-b-2 transition-colors inline-flex items-center gap-1.5" data-main="analytics">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 17l4-8 4 5 3-3 4 4"/></svg>
+            Analytics
+          </button>
         </nav>
         <div class="relative">
           <button class="account-btn w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-200 dark:hover:bg-indigo-900/70 transition-colors flex items-center justify-center" title="Account" aria-label="Account menu">
@@ -199,11 +181,16 @@
 <!-- ── Action bar (desktop only) ────────────────────────────── -->
 <div class="hidden md:block bg-white dark:bg-[#0f172a] border-b border-gray-200 dark:border-gray-800 py-3">
   <div class="max-w-6xl mx-auto px-4 flex flex-col gap-3">
-    <div class="flex flex-row items-center justify-between gap-3 w-full">
-      <div id="sport-pills" class="w-auto shrink-0"></div>
+    <div class="flex flex-row items-center justify-start gap-3 w-full">
       <div class="flex items-center gap-2">
         <input id="team-search" type="text" placeholder="Search team…"
           class="min-w-0 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 w-56" />
+        <select id="date-select"
+          class="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer">
+          <option value="today">Today</option>
+          <option value="tomorrow">Tomorrow</option>
+          <option value="week">This week</option>
+        </select>
         <button id="filters-toggle"
           class="relative inline-flex flex-none justify-center items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -236,7 +223,7 @@
 </div>
 
 <!-- ── Main ─────────────────────────────────────────────────── -->
-<main class="max-w-6xl mx-auto px-4 py-5 pb-20 md:pb-5">
+<main class="max-w-6xl mx-auto px-4 py-5 pb-20 md:pb-5 overflow-x-hidden">
 
   <!-- Welcome banner (shown after checkout) -->
   <div id="welcome-banner" class="hidden mb-4 px-4 py-3 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700 rounded-xl text-sm">
@@ -263,43 +250,6 @@
 
   <!-- ── HISTORY panel ─────────────────────────────────────── -->
   <div id="panel-history" class="hidden">
-
-    <!-- Stats grid -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-      <div id="stat-total"   class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Signals</p>
-        <p class="text-base font-bold whitespace-nowrap">—</p>
-      </div>
-      <div id="stat-avg-odds" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Avg Odds · EV</p>
-        <p class="text-base font-bold whitespace-nowrap">—</p>
-      </div>
-      <div id="stat-record" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Record</p>
-        <p class="text-base font-bold whitespace-nowrap">—</p>
-      </div>
-      <div id="stat-winrate" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Win Rate</p>
-        <p class="text-base font-bold whitespace-nowrap">—</p>
-      </div>
-      <div id="stat-pnl"     class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 sm:col-span-1 col-span-2 relative">
-        <div class="flex items-center gap-1 mb-1">
-          <p class="text-xs text-gray-500 dark:text-gray-400">Turnover · P&amp;L · ROI</p>
-          <button id="stat-pnl-info-btn" class="relative text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 leading-none" aria-label="Explain values">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-            </svg>
-            <div id="stat-pnl-tooltip" class="hidden absolute top-full left-0 md:left-auto md:right-0 mt-2 w-56 max-w-[85vw] bg-gray-800 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 shadow-lg z-50 leading-relaxed">
-              <p><span class="font-semibold">Turnover</span> — total staked on settled picks</p>
-              <p class="mt-1"><span class="font-semibold">P&amp;L</span> — profit/loss across settled picks</p>
-              <p class="mt-1"><span class="font-semibold">ROI</span> — P&amp;L as a % of turnover</p>
-              <p class="mt-1 text-gray-400">Stakes: €5 (odds ≥3), €10 (2–3), €20 (&lt;2)</p>
-            </div>
-          </button>
-        </div>
-        <p class="text-base font-bold whitespace-nowrap">—</p>
-      </div>
-    </div>
 
     <!-- Quick status tabs -->
     <div id="hist-status-tabs" class="flex flex-nowrap gap-2 mb-4 overflow-x-auto">
@@ -330,6 +280,95 @@
     </div>
   </div>
 
+  <!-- ── ANALYTICS panel ───────────────────────────────────── -->
+  <div id="panel-analytics" class="hidden">
+
+    <!-- Stats grid (top of analytics panel) -->
+    <div id="panel-stats" class="mb-5">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div id="stat-total"   class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Signals</p>
+          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
+        </div>
+        <div id="stat-avg-odds" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Avg Odds · EV</p>
+          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
+        </div>
+        <div id="stat-record" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Record</p>
+          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
+        </div>
+        <div id="stat-winrate" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">W/L Ratio</p>
+          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
+        </div>
+        <div id="stat-pnl"     class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 sm:col-span-1 col-span-2 relative">
+          <div class="flex items-center gap-1 mb-1">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Turnover · P&amp;L · ROI</p>
+            <button id="stat-pnl-info-btn" class="relative text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 leading-none" aria-label="Explain values">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+              </svg>
+              <div id="stat-pnl-tooltip" class="hidden absolute top-full left-0 md:left-auto md:right-0 mt-2 w-56 max-w-[85vw] bg-gray-800 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 shadow-lg z-50 leading-relaxed">
+                <p><span class="font-semibold">Turnover</span> — total staked on settled signals</p>
+                <p class="mt-1"><span class="font-semibold">P&amp;L</span> — profit/loss across settled signals</p>
+                <p class="mt-1"><span class="font-semibold">ROI</span> — P&amp;L as a % of turnover</p>
+                <p class="mt-1 text-gray-400">Stakes: €5 (odds ≥3), €10 (2–3), €20 (&lt;2)</p>
+              </div>
+            </button>
+          </div>
+          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="analytics-spinner" class="hidden flex items-center justify-center py-10">
+      <span class="spinner"></span>
+    </div>
+
+    <!-- Cumulative P&L curve -->
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-4 mb-4">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Cumulative P&amp;L</p>
+      <div class="relative h-52">
+        <canvas id="chart-pnl"></canvas>
+      </div>
+    </div>
+
+    <!-- ROI by period -->
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-4 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">ROI by Period</p>
+        <div class="flex items-center gap-1 text-xs font-medium">
+          <button id="roi-toggle-week"
+            class="px-2 py-0.5 rounded-md bg-indigo-500 text-white transition-colors">Week</button>
+          <button id="roi-toggle-month"
+            class="px-2 py-0.5 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">Month</button>
+        </div>
+      </div>
+      <div class="relative h-48">
+        <canvas id="chart-roi"></canvas>
+      </div>
+    </div>
+
+    <!-- Yield by sport -->
+    <div id="sport-table-container" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden mb-4">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 px-4 py-3 border-b border-gray-100 dark:border-gray-800">Yield by Sport</p>
+      <table class="w-full text-sm">
+        <thead class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/60">
+          <tr>
+            <th class="px-4 py-2 text-left font-medium">Sport</th>
+            <th class="px-4 py-2 text-center font-medium">Signals</th>
+            <th class="px-4 py-2 text-center font-medium">ROI</th>
+            <th class="px-4 py-2 text-center font-medium">P&amp;L</th>
+          </tr>
+        </thead>
+        <tbody id="sport-table-body"></tbody>
+      </table>
+    </div>
+
+  </div>
+
 </main>
 
 <!-- ── Pull-to-refresh indicator (mobile only) ──────────────── -->
@@ -346,14 +385,6 @@
   class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex items-center justify-around px-4 py-2"
   style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom))">
 
-  <!-- Sport picker popover (fixed, appears above the sport button) -->
-  <div id="sport-popover"
-    class="hidden fixed bottom-16 right-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-1.5 flex flex-col gap-0.5 z-50 min-w-[9rem]">
-    <button class="sport-pop-btn flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors" data-sport="football">⚽️ Football</button>
-    <button class="sport-pop-btn flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors" data-sport="basketball">🏀 Basketball</button>
-    <button class="sport-pop-btn flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors" data-sport="tennis">🎾 Tennis</button>
-  </div>
-
   <button class="bottom-nav-btn flex items-center justify-center p-3 rounded-xl transition-colors text-gray-400 dark:text-gray-500"
     data-main="signals" aria-label="Signals">
     <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -366,10 +397,11 @@
       <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3"/>
     </svg>
   </button>
-  <button id="sport-nav-btn"
-    class="flex items-center justify-center p-3 rounded-xl transition-colors text-gray-400 dark:text-gray-500"
-    aria-label="Select sport" aria-haspopup="true" aria-expanded="false">
-    <span id="sport-nav-icon" class="text-xl leading-none">⚽️</span>
+  <button class="bottom-nav-btn flex items-center justify-center p-3 rounded-xl transition-colors text-gray-400 dark:text-gray-500"
+    data-main="analytics" aria-label="Analytics">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 17l4-8 4 5 3-3 4 4"/>
+    </svg>
   </button>
 </nav>
 

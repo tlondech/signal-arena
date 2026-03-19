@@ -5,20 +5,24 @@
 
 export const state = {
   // ── UI ──────────────────────────────────────────────────────
-  mainTab:          "signals",  // "signals" | "history"
+  mainTab:          "signals",  // "signals" | "history" | "analytics"
   burgerDrawerOpen: false,
 
   // ── Data ────────────────────────────────────────────────────
   signalsData: [],
   histData: [],
   pendingData: [],
+  analyticsData: [],
+
+  // ── Analytics filters ───────────────────────────────────────
+  analyticsActiveDateRange: "all",   // "all" | "30d" | "3m" | "6m"
 
   // ── Filters ─────────────────────────────────────────────────
-  activeSport:       "football",   // "football" | "basketball" | "tennis"
+  activeSport:       "all",        // "all" | "football" | "basketball" | "tennis"
   activeLeague:      "all",
   activeSignalType:  "all",
   teamSearch:        "",
-  activeDateSignals: "all",        // "all" | "today" | "tomorrow" | "week"
+  activeDateSignals: "today",      // "all" | "today" | "tomorrow" | "week"
   activeDateHist:    "all",        // "all" | "7d" | "30d" | "3m"
 
   // ── History table ───────────────────────────────────────────
