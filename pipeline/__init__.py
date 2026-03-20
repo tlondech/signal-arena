@@ -26,16 +26,17 @@ def run_league_pipeline(
     name_map: dict,
     force_fetch: bool = False,
     dry_run: bool = False,
-) -> tuple[list[dict], list[dict]]:
+) -> tuple[list[dict], list[dict], int, list]:
     """
     Runs the full extraction → evaluation pipeline for one league.
-    Returns (signals, raw_fixtures). Both lists are empty on any recoverable failure.
+    Returns (signals, raw_fixtures, n_upcoming, dry_run_events).
+    All lists are empty and n_upcoming is 0 on any recoverable failure.
     """
     fetcher = FETCHERS.get(league.sport_type)
     evaluator = EVALUATORS.get(league.sport_type)
     if fetcher is None or evaluator is None:
         logger.warning("[%s] Unknown sport_type %r — skipping.", league.key, league.sport_type)
-        return [], []
+        return [], [], 0, []
 
     result = fetcher.fetch(league, cfg, engine, name_map, force_fetch, dry_run)
 
@@ -43,11 +44,11 @@ def run_league_pipeline(
     quota = getattr(result.odds_client, "quota_remaining", None)
     quota_str = f"  quota: {quota}" if quota is not None else ""
 
-    if dry_run or not result.upcoming_events:
-        logger.info("  %-26s  [FETCH]    %2d matches%s", league.display_name, n_upcoming, quota_str)
-        return [], []
+    if quota_str:
+        logger.debug("  %s%s", league.display_name, quota_str)
 
-    logger.info("  %-26s  [FETCH]    %2d matches%s", league.display_name, n_upcoming, quota_str)
+    if dry_run or not result.upcoming_events:
+        return [], [], n_upcoming, result.upcoming_events if dry_run else []
 
     signals = evaluator.evaluate(
         result.upcoming_events, league, cfg, name_map,
@@ -58,10 +59,7 @@ def run_league_pipeline(
         round_map=result.round_map,
     )
 
-    n_signals = sum(len(m.get("signals", [])) for m in signals)
-    logger.info("  %-26s  [EVALUATE] %2d signals", league.display_name, n_signals)
-
     for f in result.raw_fixtures:
         f["league_key"] = league.key
 
-    return signals, result.raw_fixtures
+    return signals, result.raw_fixtures, n_upcoming, []

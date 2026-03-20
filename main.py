@@ -22,6 +22,11 @@ import webbrowser
 from datetime import date, datetime
 from pathlib import Path
 
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.table import Table
+from rich.tree import Tree
+
 from sqlalchemy.orm import Session
 
 from config import LEAGUES as _ALL_LEAGUES
@@ -47,20 +52,7 @@ from pipeline import run_league_pipeline, settle_all_sports
 # Logging setup
 # ---------------------------------------------------------------------------
 
-class _ColoredFormatter(logging.Formatter):
-    _COLORS = {
-        logging.DEBUG:    "\033[90m",   # dim gray
-        logging.INFO:     "\033[0m",    # default
-        logging.WARNING:  "\033[93m",   # bright yellow
-        logging.ERROR:    "\033[91m",   # bright red
-        logging.CRITICAL: "\033[95m",   # magenta
-    }
-    _RESET = "\033[0m"
-
-    def format(self, record: logging.LogRecord) -> str:
-        color = self._COLORS.get(record.levelno, "")
-        return f"{color}{super().format(record)}{self._RESET}"
-
+console = Console()
 
 _FMT  = "%(asctime)s [%(levelname)s]  %(message)s"
 _DATE = "%H:%M:%S"
@@ -76,10 +68,15 @@ os.makedirs("logs", exist_ok=True)
 _file_handler = logging.FileHandler("logs/run.log", encoding="utf-8")
 _file_handler.setFormatter(logging.Formatter(_FMT, datefmt=_DATE))
 
-_stream_handler = logging.StreamHandler()
-_stream_handler.setFormatter(_ColoredFormatter(_FMT, datefmt=_DATE))
+_rich_handler = RichHandler(
+    console=console,
+    show_path=False,
+    rich_tracebacks=True,
+    log_time_format="[%H:%M:%S]",
+)
+_rich_handler.setFormatter(logging.Formatter("%(message)s"))
 
-logging.basicConfig(level=logging.INFO, handlers=[_file_handler, _stream_handler])
+logging.basicConfig(level=logging.INFO, handlers=[_file_handler, _rich_handler])
 for _noisy in ("httpx", "httpcore", "h2", "hpack"):
     logging.getLogger(_noisy).setLevel(logging.CRITICAL)
 logger = logging.getLogger(__name__)
@@ -218,14 +215,47 @@ def run_pipeline(force_fetch: bool = False, dry_run: bool = False) -> None:
         label = _SPORT_LABEL.get(sport_type, sport_type.upper())
         logger.info("")
         logger.info("── %s  (%d) ──", label, len(leagues))
+
+        sport_tree = Tree(f"[bold]{label}[/bold]  ({len(leagues)} league{'s' if len(leagues) != 1 else ''})")
+        dry_run_rows: list[tuple[str, str, str]] = []
         sport_signals = 0
+
         for league in leagues:
-            league_signals, raw_fixtures = run_league_pipeline(
+            league_signals, raw_fixtures, n_matches, dry_events = run_league_pipeline(
                 league, cfg, engine, name_map, force_fetch=force_fetch, dry_run=dry_run,
             )
             all_signals.extend(league_signals)
             all_raw_fixtures.extend(raw_fixtures)
-            sport_signals += sum(len(m["signals"]) for m in league_signals)
+            n_sig = sum(len(m["signals"]) for m in league_signals)
+            sport_signals += n_sig
+
+            leaf = f"{league.display_name:<26}  [cyan][FETCH][/cyan] {n_matches:2d} matches"
+            if not dry_run:
+                leaf += f"  [green][EVALUATE][/green] {n_sig:2d} signals"
+            sport_tree.add(leaf)
+
+            for ev in dry_events:
+                dry_run_rows.append((
+                    str(ev["commence_time"].date()),
+                    ev["home_team"],
+                    ev["away_team"],
+                ))
+
+        console.print(sport_tree)
+
+        if dry_run and dry_run_rows:
+            tbl = Table(
+                title=f"{label} — Upcoming Matches",
+                show_header=True,
+                header_style="bold",
+            )
+            tbl.add_column("Date", style="dim cyan")
+            tbl.add_column("Home")
+            tbl.add_column("Away")
+            for date_str, home, away in dry_run_rows:
+                tbl.add_row(date_str, home, away)
+            console.print(tbl)
+
         signals_by_sport[sport_type] = sport_signals
 
     if dry_run:

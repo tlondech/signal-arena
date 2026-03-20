@@ -86,6 +86,8 @@ All active ATP and WTA tournaments at run time (ATP 250 / 500 / 1000, Grand Slam
 pip install -r requirements.txt
 ```
 
+Dependencies: `requests`, `pandas`, `sqlalchemy`, `python-dotenv`, `scipy`, `numpy`, `supabase`, `rich`.
+
 ### 2. Configure API keys
 
 ```bash
@@ -130,6 +132,7 @@ python main.py
 python main.py --fetch
 
 # Check Odds API coverage per league/tournament without writing to DB or running the model
+# Prints a coverage tree (sport → leagues with match counts) and a match table per sport
 python main.py --dry-run
 
 # Enable debug-level logging

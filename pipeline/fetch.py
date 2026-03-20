@@ -76,9 +76,7 @@ def fetch_league_data(
                         "[DRY-RUN] %-20s  sport=%-35s  → %d match(es) found on Winamax",
                         league.display_name, league.odds_sport, len(upcoming_events),
                     )
-                    for ev in upcoming_events:
-                        logger.info("    · %s vs %s  (%s)", ev["home_team"], ev["away_team"], ev["commence_time"].date())
-                return [], [], {}, {}, odds_client
+                return upcoming_events, [], {}, {}, odds_client
             return upcoming_events, [], {}, {}, odds_client
 
         if dry_run:
@@ -92,9 +90,7 @@ def fetch_league_data(
                     "[DRY-RUN] %-20s  sport=%-35s  → %d match(es) found on Winamax",
                     league.display_name, league.odds_sport, len(upcoming_events),
                 )
-                for ev in upcoming_events:
-                    logger.info("    · %s vs %s  (%s)", ev["home_team"], ev["away_team"], ev["commence_time"].date())
-            return [], [], {}, {}, odds_client
+            return upcoming_events, [], {}, {}, odds_client
 
         if not upcoming_events:
             logger.debug("[%s] No upcoming matches with Winamax odds — skipping.", league.key)
