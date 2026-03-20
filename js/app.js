@@ -451,18 +451,24 @@ function _showTennisTip(el) {
   _gtt.style.left = left + "px";
   _gtt.style.top  = top  + "px";
 }
+const _TIP_SEL = ".tennis-score-tip, .signal-label-tip";
+let _tipHideTimer = null;
+let _lastTipTouch = 0;
 document.addEventListener("mouseenter", e => {
-  const el = e.target.closest(".tennis-score-tip");
+  if (Date.now() - _lastTipTouch < 500) return;
+  const el = e.target.closest(_TIP_SEL);
   if (el) _showTennisTip(el);
 }, true);
 document.addEventListener("mouseleave", e => {
-  if (e.target.closest(".tennis-score-tip") && _gtt) _gtt.classList.remove("visible");
+  if (Date.now() - _lastTipTouch < 500) return;
+  if (e.target.closest(_TIP_SEL) && _gtt) _gtt.classList.remove("visible");
 }, true);
-document.addEventListener("touchstart", e => {
-  const el = e.target.closest(".tennis-score-tip");
+document.addEventListener("touchend", e => {
+  const el = e.target.closest(_TIP_SEL);
   if (!el || !_gtt) return;
-  e.stopPropagation();
+  e.preventDefault(); // block synthesised click (prevents Winamax link opening on score tap)
+  _lastTipTouch = Date.now();
+  clearTimeout(_tipHideTimer);
   _showTennisTip(el);
-  const hide = () => { _gtt.classList.remove("visible"); document.removeEventListener("touchstart", hide, true); };
-  setTimeout(() => document.addEventListener("touchstart", hide, true), 0);
+  _tipHideTimer = setTimeout(() => _gtt.classList.remove("visible"), 2500);
 }, true);

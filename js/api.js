@@ -24,7 +24,12 @@ export async function fetchPendingSignals() {
 
   if (state.activeSport      !== "all") q = q.eq("sport",      state.activeSport);
   if (state.activeLeague     !== "all") q = q.eq("league_key", state.activeLeague);
-  if (state.activeSignalType !== "all") q = q.eq("outcome",    state.activeSignalType);
+  if (state.activeSignalType !== "all") {
+    if (state.activeSignalType === "1x2")       q = q.in("outcome", ["home_win", "draw", "away_win"]);
+    else if (state.activeSignalType === "moneyline") q = q.in("outcome", ["home_win", "away_win"]);
+    else if (state.activeSignalType.endsWith("_"))   q = q.like("outcome", `${state.activeSignalType}%`);
+    else                                             q = q.eq("outcome", state.activeSignalType);
+  }
   if (state.teamSearch)                 q = q.or(`home_team.ilike.%${state.teamSearch}%,away_team.ilike.%${state.teamSearch}%`);
   if (state.activeDateHist   !== "all") {
     const days  = state.activeDateHist === "7d" ? 7 : state.activeDateHist === "30d" ? 30 : 90;
@@ -79,7 +84,12 @@ export async function fetchHistoryPage(page = 0) {
   if (state.activeSport      !== "all") q = q.eq("sport",      state.activeSport);
 
   if (state.activeLeague     !== "all") q = q.eq("league_key", state.activeLeague);
-  if (state.activeSignalType !== "all") q = q.eq("outcome",    state.activeSignalType);
+  if (state.activeSignalType !== "all") {
+    if (state.activeSignalType === "1x2")       q = q.in("outcome", ["home_win", "draw", "away_win"]);
+    else if (state.activeSignalType === "moneyline") q = q.in("outcome", ["home_win", "away_win"]);
+    else if (state.activeSignalType.endsWith("_"))   q = q.like("outcome", `${state.activeSignalType}%`);
+    else                                             q = q.eq("outcome", state.activeSignalType);
+  }
   if (state.teamSearch)                 q = q.or(`home_team.ilike.%${state.teamSearch}%,away_team.ilike.%${state.teamSearch}%`);
 
   if (state.activeDateHist !== "all") {

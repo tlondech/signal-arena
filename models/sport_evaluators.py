@@ -125,6 +125,8 @@ class TennisEvaluator:
         name_map: dict,
         *,
         round_map: dict | None = None,
+        seed_map: dict | None = None,
+        short_name_map: dict | None = None,
         **_ignored,
     ) -> list[dict]:
         is_wta = league.odds_sport.startswith("tennis_wta_")
@@ -150,6 +152,8 @@ class TennisEvaluator:
         for event in upcoming_events:
             player1 = event["home_team"]
             player2 = event["away_team"]
+            p1_label = short_name_map.get(player1) if short_name_map else None
+            p2_label = short_name_map.get(player2) if short_name_map else None
             raw_signals = evaluate_tennis_match(
                 player1=player1,
                 player2=player2,
@@ -160,12 +164,14 @@ class TennisEvaluator:
                 ev_threshold=cfg.ev_threshold,
                 max_prob_ratio=cfg.tennis_max_prob_ratio,
                 min_matches=cfg.tennis_min_matches,
+                p1_label=p1_label,
+                p2_label=p2_label,
             )
             if raw_signals:
                 raw_signals = [max(raw_signals, key=lambda s: s["ev"])]
-                stage = None
-                if round_map:
-                    stage = round_map.get(frozenset({player1.lower(), player2.lower()}))
+                pair_key = frozenset({player1.lower(), player2.lower()})
+                stage = round_map.get(pair_key) if round_map else None
+                seeds = seed_map.get(pair_key, {}) if seed_map else {}
                 signals.append({
                     "league_key":     league.key,
                     "league_name":    league.display_name,
@@ -175,6 +181,8 @@ class TennisEvaluator:
                     "away_canonical": player2,
                     "home_crest":     crest_map.get(player1),
                     "away_crest":     crest_map.get(player2),
+                    "home_seed":      seeds.get("home"),
+                    "away_seed":      seeds.get("away"),
                     "surface":        surface,
                     "stage":          stage,
                     "kickoff":        event["commence_time"].isoformat(),
@@ -196,6 +204,7 @@ class NBAEvaluator:
         name_map: dict,
         *,
         stage_map: dict | None = None,
+        short_name_map: dict | None = None,
         **_ignored,
     ) -> list[dict]:
         ratings = cfg.nba_ratings
@@ -247,6 +256,8 @@ class NBAEvaluator:
             if stage_map:
                 stage = stage_map.get(frozenset({home_winamax.lower(), away_winamax.lower()}))
 
+            home_label = short_name_map.get(home_winamax) if short_name_map else None
+            away_label = short_name_map.get(away_winamax) if short_name_map else None
             raw_signals = evaluate_basketball_match(
                 home_team=home_winamax,
                 away_team=away_winamax,
@@ -268,6 +279,8 @@ class NBAEvaluator:
                 total_std=cfg.nba_total_std,
                 home_rest_days=home_rest_days,
                 away_rest_days=away_rest_days,
+                home_label=home_label,
+                away_label=away_label,
             )
             if not raw_signals:
                 continue

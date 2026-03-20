@@ -104,6 +104,7 @@ def settle_all_sports(
     Replaces the inline _settle_all() in main.py as the single settlement entry point.
     """
     from db.supabase import (
+        backfill_outcome_labels,
         backfill_tennis_scores,
         settle_nba_supabase_signals,
         settle_supabase_signals,
@@ -121,3 +122,5 @@ def settle_all_sports(
     nba_keys = [lg.key for lg in cfg.enabled_leagues if lg.sport_type == "basketball"]
     if nba_keys:
         settle_nba_supabase_signals(supabase, nba_keys, name_map)
+
+    backfill_outcome_labels(supabase)

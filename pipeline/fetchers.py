@@ -33,6 +33,8 @@ class FetchResult:
     stage_map:       dict       = field(default_factory=dict)
     crest_map:       dict       = field(default_factory=dict)
     round_map:       dict | None = None   # tennis only
+    seed_map:        dict | None = None   # tennis only; {frozenset({p1, p2}): {"home": int|None, "away": int|None}}
+    short_name_map:  dict | None = None   # tennis only; {full_name: short_name}
     features:        dict       = field(default_factory=dict)  # football only
     odds_client:     object | None = None
 
@@ -108,9 +110,11 @@ class FootballFetcher:
 
 
 class TennisFetcher:
-    """Fetches live odds for tennis; builds round map once per run."""
+    """Fetches live odds for tennis; builds round and seed maps once per run."""
 
-    _round_map_cache: dict | None = None  # class-level: shared across all league iterations
+    _round_map_cache:      dict | None = None  # class-level: shared across all league iterations
+    _seed_map_cache:       dict | None = None
+    _short_name_map_cache: dict | None = None
 
     def fetch(
         self,
@@ -132,11 +136,13 @@ class TennisFetcher:
             return FetchResult(upcoming_events=upcoming_events, odds_client=odds_client)
 
         if TennisFetcher._round_map_cache is None:
-            TennisFetcher._round_map_cache = _build_tennis_round_map()
+            TennisFetcher._round_map_cache, TennisFetcher._seed_map_cache, TennisFetcher._short_name_map_cache = _build_tennis_maps()
 
         return FetchResult(
             upcoming_events=upcoming_events,
             round_map=TennisFetcher._round_map_cache,
+            seed_map=TennisFetcher._seed_map_cache,
+            short_name_map=TennisFetcher._short_name_map_cache,
             odds_client=odds_client,
         )
 
@@ -161,10 +167,11 @@ class NBAFetcher:
         if dry_run:
             return FetchResult(upcoming_events=upcoming_events, odds_client=odds_client)
 
-        stage_map = _build_nba_stage_map()
+        stage_map, short_name_map = _build_nba_maps()
         return FetchResult(
             upcoming_events=upcoming_events,
             stage_map=stage_map,
+            short_name_map=short_name_map,
             odds_client=odds_client,
         )
 
@@ -173,32 +180,63 @@ class NBAFetcher:
 # Stage/round map builders
 # ---------------------------------------------------------------------------
 
-def _build_tennis_round_map() -> dict:
-    """Fetches ESPN upcoming tennis matches; returns {frozenset({p1, p2}): compact_round}."""
+def _build_tennis_maps() -> tuple[dict, dict, dict]:
+    """Fetches ESPN upcoming tennis matches; returns (round_map, seed_map, short_name_map).
+
+    round_map:       {frozenset({p1, p2}): compact_round}
+    seed_map:        {frozenset({p1, p2}): {"home": int|None, "away": int|None}}
+    short_name_map:  {full_name: short_name}  (e.g. "Carlos Alcaraz" → "C. Alcaraz")
+    """
     try:
         matches = ESPNTennisClient().fetch_upcoming_matches(days_ahead=14)
-        return {
+        round_map = {
             frozenset({m.home_team.lower(), m.away_team.lower()}): m.metadata["round"]
             for m in matches
             if m.metadata.get("round")
         }
+        seed_map = {
+            frozenset({m.home_team.lower(), m.away_team.lower()}): {
+                "home": m.metadata.get("home_seed"),
+                "away": m.metadata.get("away_seed"),
+            }
+            for m in matches
+            if m.metadata.get("home_seed") is not None or m.metadata.get("away_seed") is not None
+        }
+        short_name_map: dict[str, str] = {}
+        for m in matches:
+            if m.metadata.get("home_short_name"):
+                short_name_map[m.home_team] = m.metadata["home_short_name"]
+            if m.metadata.get("away_short_name"):
+                short_name_map[m.away_team] = m.metadata["away_short_name"]
+        return round_map, seed_map, short_name_map
     except Exception as e:
-        logger.debug("Tennis round map fetch failed (non-fatal): %s", e)
-        return {}
+        logger.debug("Tennis maps fetch failed (non-fatal): %s", e)
+        return {}, {}, {}
 
 
-def _build_nba_stage_map() -> dict:
-    """Fetches ESPN upcoming NBA games; returns {frozenset({home, away}): stage_label}."""
+def _build_nba_maps() -> tuple[dict, dict]:
+    """Fetches ESPN upcoming NBA games; returns (stage_map, short_name_map).
+
+    stage_map:      {frozenset({home, away}): stage_label}
+    short_name_map: {full_name: short_name}  (e.g. "Charlotte Hornets" → "Hornets")
+    """
     try:
         matches = ESPNBasketballClient().fetch_upcoming_matches(days_ahead=21)
-        return {
+        stage_map = {
             frozenset({m.home_team.lower(), m.away_team.lower()}): m.metadata["stage"]
             for m in matches
             if m.metadata.get("stage")
         }
+        short_name_map: dict[str, str] = {}
+        for m in matches:
+            if m.metadata.get("home_short_name"):
+                short_name_map[m.home_team] = m.metadata["home_short_name"]
+            if m.metadata.get("away_short_name"):
+                short_name_map[m.away_team] = m.metadata["away_short_name"]
+        return stage_map, short_name_map
     except Exception as e:
-        logger.debug("NBA stage map fetch failed (non-fatal): %s", e)
-        return {}
+        logger.debug("NBA maps fetch failed (non-fatal): %s", e)
+        return {}, {}
 
 
 # ---------------------------------------------------------------------------

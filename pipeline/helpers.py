@@ -11,21 +11,23 @@ logger_name = __name__
 import logging
 logger = logging.getLogger(__name__)
 
-_STATIC_LABELS = {
-    "home_win": "Home Win",
-    "draw":     "Draw",
-    "away_win": "Away Win",
-}
-
-
-def get_outcome_label(outcome: str) -> str:
+def get_outcome_label(
+    outcome: str,
+    home_name: str | None = None,
+    away_name: str | None = None,
+) -> str:
     """Return a human-readable label for a signal outcome key.
 
-    Static outcomes (home_win, draw, away_win) use a lookup table.
-    Totals outcomes encode a normalised half-integer line: "over_2_5" → "Over 2.5".
+    When home_name/away_name are provided, win outcomes use the team name
+    (e.g. "Arsenal Win") instead of the generic "Home Win"/"Away Win".
+    Draw and totals labels are unaffected.
     """
-    if outcome in _STATIC_LABELS:
-        return _STATIC_LABELS[outcome]
+    if outcome == "home_win":
+        return f"{home_name} Win" if home_name else "Home Win"
+    if outcome == "away_win":
+        return f"{away_name} Win" if away_name else "Away Win"
+    if outcome == "draw":
+        return "Draw"
     if outcome.startswith(("over_", "under_")):
         prefix, line_str = outcome.split("_", 1)
         parts = line_str.split("_")

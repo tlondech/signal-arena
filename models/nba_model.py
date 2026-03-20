@@ -209,6 +209,8 @@ def evaluate_basketball_match(
     total_std: float = 19.0,
     home_rest_days: int | None = None,
     away_rest_days: int | None = None,
+    home_label: str | None = None,
+    away_label: str | None = None,
 ) -> list[dict]:
     """
     Evaluates a single NBA matchup and returns a list of signal dicts.
@@ -248,8 +250,8 @@ def evaluate_basketball_match(
         p_away = 1.0 - p_home
 
         for outcome, true_prob, odds, label in (
-            ("home_win", p_home, home_odds, "Home Win"),
-            ("away_win", p_away, away_odds, "Away Win"),
+            ("home_win", p_home, home_odds, f"{home_label} Win" if home_label else "Home Win"),
+            ("away_win", p_away, away_odds, f"{away_label} Win" if away_label else "Away Win"),
         ):
             ev = calculate_ev(true_prob, odds)
             if ev >= ev_threshold and true_prob * odds <= max_prob_ratio:

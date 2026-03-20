@@ -625,6 +625,49 @@ def _decode_spread_line(encoded: str) -> float:
     return float(f"{parts[0]}.{''.join(parts[1:])}") if len(parts) > 1 else float(parts[0])
 
 
+def backfill_outcome_labels(supabase: Client) -> int:
+    """
+    Rewrites outcome_label for all home_win / away_win rows to use the actual
+    team / player name (e.g. "Arsenal Win", "J. Ostapenko Win") instead of the
+    old generic labels ("Home Win", "Away Win", "Player 1 Win", "Player 2 Win").
+
+    Rows whose outcome_label already ends with " Win" and doesn't start with
+    "Home" or "Away" or "Player" are left untouched.
+    """
+    _STALE = {"Home Win", "Away Win", "Player 1 Win", "Player 2 Win"}
+    try:
+        resp = (
+            supabase.table("signal_history")
+            .select("id,outcome,outcome_label,home_team,away_team")
+            .in_("outcome", ["home_win", "away_win"])
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("backfill_outcome_labels: fetch failed: %s", exc)
+        return 0
+
+    rows = cast(list[dict], resp.data or [])
+    updated = 0
+    for row in rows:
+        current = row.get("outcome_label") or ""
+        if current not in _STALE:
+            continue
+        new_label = (
+            f"{row['home_team']} Win" if row["outcome"] == "home_win"
+            else f"{row['away_team']} Win"
+        )
+        if new_label == current:
+            continue
+        try:
+            supabase.table("signal_history").update({"outcome_label": new_label}).eq("id", row["id"]).execute()
+            updated += 1
+        except Exception as exc:
+            logger.warning("backfill_outcome_labels: failed to update id=%s: %s", row["id"], exc)
+
+    logger.info("backfill_outcome_labels: updated %d / %d rows.", updated, len(rows))
+    return updated
+
+
 def prune_stale_supabase_signals(
     supabase: Client,
     all_signals: list[dict],
@@ -706,6 +749,8 @@ def push_signals_to_supabase(
                 "ev":             s["ev"],
                 "home_rank":      m.get("home_rank"),
                 "away_rank":      m.get("away_rank"),
+                "home_seed":      m.get("home_seed"),
+                "away_seed":      m.get("away_seed"),
                 "home_form":      m.get("home_form"),
                 "away_form":      m.get("away_form"),
                 "home_crest":     m.get("home_crest"),

@@ -128,10 +128,14 @@ class ESPNBasketballClient(ESPNClient):
                 away = next((c for c in competitors if c.get("homeAway") == "away"), None)
                 if not home or not away:
                     continue
-                home_team = (home.get("team") or {}).get("displayName")
-                away_team = (away.get("team") or {}).get("displayName")
+                home_t = home.get("team") or {}
+                away_t = away.get("team") or {}
+                home_team = home_t.get("displayName")
+                away_team = away_t.get("displayName")
                 if not home_team or not away_team:
                     continue
+                home_short = home_t.get("shortDisplayName") or home_team
+                away_short = away_t.get("shortDisplayName") or away_team
                 raw_date = event.get("date", "")
                 try:
                     kickoff = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
@@ -153,6 +157,10 @@ class ESPNBasketballClient(ESPNClient):
                     home_team=home_team,
                     away_team=away_team,
                     completed=False,
-                    metadata={"stage": stage} if stage else {},
+                    metadata={
+                        **({"stage": stage} if stage else {}),
+                        "home_short_name": home_short,
+                        "away_short_name": away_short,
+                    },
                 ))
         return matches

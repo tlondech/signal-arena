@@ -136,17 +136,14 @@ export const SPORTS = [
 export const SPORT_EMOJI = { football: "⚽️", basketball: "🏀", tennis: "🎾" };
 export const SIGNAL_TYPES = {
   football: [
-    { key: "all",      label: "All Types" },
-    { key: "home_win", label: "Home Win" },
-    { key: "draw",     label: "Draw" },
-    { key: "away_win", label: "Away Win" },
-    { key: "over_",    label: "Over" },
-    { key: "under_",   label: "Under" },
+    { key: "all",   label: "All Types" },
+    { key: "1x2",   label: "1X2" },
+    { key: "over_", label: "Over" },
+    { key: "under_",label: "Under" },
   ],
   basketball: [
     { key: "all",          label: "All Types" },
-    { key: "home_win",     label: "Home Win" },
-    { key: "away_win",     label: "Away Win" },
+    { key: "moneyline",    label: "Moneyline" },
     { key: "over_",        label: "Over" },
     { key: "under_",       label: "Under" },
     { key: "spread_home_", label: "Spread (Home)" },
@@ -175,7 +172,7 @@ const HIST_COLS = [
     const isBasketball = r.sport === "basketball" || r.league_key === "nba";
     const txt = `${r.actual_home_score}–${r.actual_away_score}`;
     const scoreSpan = isTennis && r.score_detail
-      ? `<span class="tennis-score-tip border-b border-dashed border-gray-400 dark:border-gray-500 cursor-default whitespace-nowrap" data-tip="${esc(orientSetScores(r.score_detail, r.actual_home_score, r.actual_away_score))}">${txt}</span>`
+      ? `<span class="tennis-score-tip inline-block border-b border-dashed border-gray-400 dark:border-gray-500 cursor-pointer whitespace-nowrap" data-tip="${esc(orientSetScores(r.score_detail, r.actual_home_score, r.actual_away_score))}">${txt}</span>`
       : `<span class="whitespace-nowrap">${txt}</span>`;
     const isTotal = isBasketball && r.outcome && (r.outcome.startsWith("over_") || r.outcome.startsWith("under_"));
     const mathCtx = isTotal
@@ -255,6 +252,8 @@ export function groupIntoMatches(rows) {
         away_form:         row.away_form,
         home_crest:        row.home_crest,
         away_crest:        row.away_crest,
+        home_seed:         row.home_seed ?? null,
+        away_seed:         row.away_seed ?? null,
         home_rest_days:    row.home_rest_days,
         away_rest_days:    row.away_rest_days,
         h2h_used:          row.h2h_used,
@@ -314,6 +313,7 @@ export function renderCard(m, opts = {}) {
     ? `<img src="${esc(url)}" alt="${esc(name)}" class="w-7 h-7 object-contain flex-shrink-0" onerror="this.style.display='none'">`
     : `<span class="w-7 h-7 flex-shrink-0"></span>`;
   const rankStr = n => n ? `<span class="text-xs font-medium text-gray-400 dark:text-gray-500">${ordinal(n)}</span>` : "";
+  const seedBadge = n => n != null ? `<span class="text-[11px] font-semibold text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1 rounded" title="Tournament seed">S${n}</span>` : "";
 
   const isTennis     = m.sport === "tennis";
   const isBasketball = m.sport === "basketball";
@@ -344,7 +344,7 @@ export function renderCard(m, opts = {}) {
     if (isTennis) {
       const txt = `${m.actual_home_score}–${m.actual_away_score}`;
       score = m.score_detail
-        ? `<span class="tennis-score-tip text-sm font-bold tabular-nums border-b border-dashed border-gray-400 dark:border-gray-500 cursor-default" data-tip="${esc(orientSetScores(m.score_detail, m.actual_home_score, m.actual_away_score))}">${txt}</span>`
+        ? `<span class="tennis-score-tip inline-block text-sm font-bold tabular-nums border-b border-dashed border-gray-400 dark:border-gray-500 cursor-pointer" data-tip="${esc(orientSetScores(m.score_detail, m.actual_home_score, m.actual_away_score))}">${txt}</span>`
         : `<span class="text-sm font-bold tabular-nums">${txt}</span>`;
     } else {
       score = `<span class="text-sm font-bold tabular-nums">${m.actual_home_score}–${m.actual_away_score}</span>`;
@@ -369,7 +369,7 @@ export function renderCard(m, opts = {}) {
   const signalsRows = m.signals.map(b => `
     <tr class="border-t border-gray-100 dark:border-gray-700/50">
       <td class="py-1.5 pr-2">
-        <div class="max-w-full"><span class="inline-block max-w-full truncate px-2 py-0.5 rounded-full text-xs font-medium align-middle bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">${signalLabel(b)}</span></div>
+        <div class="max-w-full"><span class="signal-label-tip inline-block max-w-full truncate px-2 py-0.5 rounded-full text-xs font-medium align-middle bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300" data-tip="${esc(b.outcome_label)}">${signalLabel(b)}</span></div>
       </td>
       <td class="py-1.5 pr-2 text-right font-mono text-sm">${Number(b.odds).toFixed(2)}</td>
       <td class="py-1.5 pr-2 text-right text-sm text-gray-500 dark:text-gray-400">${(b.true_prob * 100).toFixed(1)}%</td>
@@ -409,6 +409,7 @@ export function renderCard(m, opts = {}) {
         <div class="flex items-center gap-1.5 min-w-0">
           ${crestH(m.home_crest, m.home_team)}
           <span class="font-semibold truncate">${esc(m.home_team)}</span>
+          ${isTennis ? seedBadge(m.home_seed) : ""}
           ${restWarn(m.home_rest_days)}
         </div>
         <div class="flex items-center gap-2.5 shrink-0">
@@ -420,6 +421,7 @@ export function renderCard(m, opts = {}) {
         <div class="flex items-center gap-1.5 min-w-0">
           ${crestH(m.away_crest, m.away_team)}
           <span class="font-semibold truncate">${esc(m.away_team)}</span>
+          ${isTennis ? seedBadge(m.away_seed) : ""}
           ${restWarn(m.away_rest_days)}
         </div>
         <div class="flex items-center gap-2.5 shrink-0">
@@ -817,7 +819,11 @@ export function renderSignalsPanel() {
 
   if (state.activeSignalType !== "all") {
     const isPrefix = state.activeSignalType.endsWith("_");
+    const _1x2 = new Set(["home_win", "draw", "away_win"]);
+    const _ml  = new Set(["home_win", "away_win"]);
     filtered = filtered.filter(m => m.signals.some(b =>
+      state.activeSignalType === "1x2"       ? _1x2.has(b.outcome) :
+      state.activeSignalType === "moneyline" ? _ml.has(b.outcome)  :
       isPrefix ? b.outcome.startsWith(state.activeSignalType) : b.outcome === state.activeSignalType
     ));
   }
@@ -839,9 +845,13 @@ export function renderSignalsPanel() {
 
   if (state.activeSignalType !== "all") {
     const isPrefix = state.activeSignalType.endsWith("_");
+    const _1x2 = new Set(["home_win", "draw", "away_win"]);
+    const _ml  = new Set(["home_win", "away_win"]);
     filtered = filtered.map(m => ({
       ...m,
       signals: m.signals.filter(b =>
+        state.activeSignalType === "1x2"       ? _1x2.has(b.outcome) :
+        state.activeSignalType === "moneyline" ? _ml.has(b.outcome)  :
         isPrefix ? b.outcome.startsWith(state.activeSignalType) : b.outcome === state.activeSignalType
       ),
     }));

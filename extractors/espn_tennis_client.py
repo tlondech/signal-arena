@@ -65,6 +65,8 @@ class ESPNTennisClient(ESPNClient):
                     loser_name:  str | None = None
                     winner_flag: str | None = None
                     loser_flag:  str | None = None
+                    winner_seed: int | None = None
+                    loser_seed:  int | None = None
 
                     for c in competitors:
                         entity = c.get("athlete") or c.get("team") or {}
@@ -76,12 +78,15 @@ class ESPNTennisClient(ESPNClient):
                         if not name:
                             continue
                         flag_href = (entity.get("flag") or {}).get("href")
+                        seed = (c.get("curatedRank") or {}).get("current")
                         if c.get("winner"):
                             winner_name = name
                             winner_flag = flag_href
+                            winner_seed = seed
                         else:
                             loser_name = name
                             loser_flag = flag_href
+                            loser_seed = seed
 
                     # Fallback: if no explicit winner flag, use set-score comparison
                     if (winner_name is None or loser_name is None) and len(competitors) == 2:
@@ -146,7 +151,7 @@ class ESPNTennisClient(ESPNClient):
                         home_score=winner_sets,
                         away_score=loser_sets,
                         completed=True,
-                        metadata={"score": score, "home_flag": winner_flag, "away_flag": loser_flag},
+                        metadata={"score": score, "home_flag": winner_flag, "away_flag": loser_flag, "home_seed": winner_seed, "away_seed": loser_seed},
                     ))
 
         # Deduplicate: ESPN serves the same matches under both atp and wta slugs
@@ -188,11 +193,20 @@ class ESPNTennisClient(ESPNClient):
                     if len(competitors) != 2:
                         continue
                     names = []
+                    short_names: list[str | None] = []
+                    seeds: list[int | None] = []
                     for c in competitors:
                         entity = c.get("athlete") or c.get("team") or {}
                         name = entity.get("displayName") or entity.get("fullName") or entity.get("name")
                         if name:
                             names.append(name)
+                            seeds.append((c.get("curatedRank") or {}).get("current"))
+                            # Singles: shortName on athlete entity; doubles: shortDisplayName on roster
+                            short = (
+                                entity.get("shortName")
+                                or (c.get("roster") or {}).get("shortDisplayName")
+                            )
+                            short_names.append(short)
                     if len(names) != 2:
                         continue
                     raw_date = comp.get("date") or event.get("date", "")
@@ -217,7 +231,7 @@ class ESPNTennisClient(ESPNClient):
                         home_team=names[0],
                         away_team=names[1],
                         completed=False,
-                        metadata={"round": round_compact},
+                        metadata={"round": round_compact, "home_seed": seeds[0], "away_seed": seeds[1], "home_short_name": short_names[0], "away_short_name": short_names[1]},
                     ))
         return matches
 

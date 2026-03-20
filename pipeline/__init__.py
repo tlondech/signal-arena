@@ -57,6 +57,8 @@ def run_league_pipeline(
         crest_map=result.crest_map,
         features=result.features,
         round_map=result.round_map,
+        seed_map=result.seed_map,
+        short_name_map=result.short_name_map,
     )
 
     for f in result.raw_fixtures:

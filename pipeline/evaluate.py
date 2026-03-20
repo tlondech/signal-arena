@@ -282,7 +282,7 @@ def evaluate_matches(
                 continue
             match_signals[key]["signals"].append({
                 "outcome":       outcome,
-                "outcome_label": get_outcome_label(outcome),
+                "outcome_label": get_outcome_label(outcome, home_winamax, away_winamax),
                 "odds":          odds,
                 "true_prob":     round(true_prob, 4),
                 "ev":            round(ev, 4),

@@ -83,6 +83,8 @@ class SignalHistory(Base):
     settled_at        = Column(DateTime, nullable=True)
     home_rank         = Column(Integer,  nullable=True)
     away_rank         = Column(Integer,  nullable=True)
+    home_seed         = Column(Integer,  nullable=True)
+    away_seed         = Column(Integer,  nullable=True)
     home_form         = Column(Text,     nullable=True)    # JSON array
     away_form         = Column(Text,     nullable=True)    # JSON array
     home_crest        = Column(String,   nullable=True)
@@ -128,6 +130,8 @@ def init_db(db_path: str):
             "ALTER TABLE odds ADD COLUMN totals_line REAL",
             "ALTER TABLE signal_history ADD COLUMN bookmaker_link TEXT",
             "ALTER TABLE signal_history ADD COLUMN score_detail TEXT",
+            "ALTER TABLE signal_history ADD COLUMN home_seed INTEGER",
+            "ALTER TABLE signal_history ADD COLUMN away_seed INTEGER",
         ]:
             try:
                 conn.execute(text(col_ddl))

@@ -105,6 +105,8 @@ def evaluate_tennis_match(
     ev_threshold: float = EV_THRESHOLD,
     max_prob_ratio: float = 1.3,
     min_matches: int = 10,
+    p1_label: str | None = None,
+    p2_label: str | None = None,
 ) -> list[dict]:
     """
     Returns a list of signals for one match.
@@ -134,8 +136,8 @@ def evaluate_tennis_match(
 
     signals = []
     for outcome, true_prob, odds, label in (
-        ("home_win", p1_wins, p1_odds, "Player 1 Win"),
-        ("away_win", p2_wins, p2_odds, "Player 2 Win"),
+        ("home_win", p1_wins, p1_odds, f"{p1_label} Win" if p1_label else "Player 1 Win"),
+        ("away_win", p2_wins, p2_odds, f"{p2_label} Win" if p2_label else "Player 2 Win"),
     ):
         ev = calculate_ev(true_prob, odds)
         if ev >= ev_threshold and true_prob * odds <= max_prob_ratio:
