@@ -248,28 +248,33 @@ async function init() {
     });
   });
 
-  // Date dropdown (desktop action bar)
-  document.getElementById("date-select").addEventListener("change", e => {
-    state.activeDateSignals = e.target.value;
-    updateFilterUI();
-    renderSignalsPanel();
-  });
-
-  // Clear filters (desktop)
-  document.getElementById("clear-filters-btn").addEventListener("click", () => {
-    state.activeSport              = "all";
-    state.activeLeague             = "all";
-    state.activeSignalType         = "all";
-    state.teamSearch               = "";
-    state.activeDateSignals        = "today";
-    state.activeDateHist           = "all";
-    state.analyticsActiveDateRange = "all";
-    document.getElementById("team-search").value = "";
+  // Reset filters from signals empty state
+  document.getElementById("panel-signals").addEventListener("click", e => {
+    if (!e.target.closest("[data-action='signals-reset-filters']")) return;
+    state.activeSport      = "all";
+    state.activeLeague     = "all";
+    state.activeSignalType = "all";
+    state.teamSearch       = "";
+    document.getElementById("team-search").value        = "";
     document.getElementById("team-search-mobile").value = "";
     updateFilterUI();
     renderBurgerDrawerPills();
-    if (state.mainTab === "analytics") refreshAnalytics();
-    else { renderSignalsPanel(); resetAndRefresh(); }
+    renderSignalsPanel();
+  });
+
+  // Reset filters from history empty state
+  document.getElementById("panel-history").addEventListener("click", e => {
+    if (!e.target.closest("[data-action='hist-reset-filters']")) return;
+    state.activeSport      = "all";
+    state.activeLeague     = "all";
+    state.activeSignalType = "all";
+    state.teamSearch       = "";
+    state.activeDateHist   = "all";
+    document.getElementById("team-search").value        = "";
+    document.getElementById("team-search-mobile").value = "";
+    updateFilterUI();
+    renderBurgerDrawerPills();
+    resetAndRefresh();
   });
 
   // Filters button (desktop) opens the same left drawer as the mobile burger
@@ -289,6 +294,7 @@ async function init() {
     state.activeDateSignals        = "today";
     state.activeDateHist           = "all";
     state.analyticsActiveDateRange = "all";
+
     document.getElementById("team-search").value = "";
     document.getElementById("team-search-mobile").value = "";
     updateFilterUI();

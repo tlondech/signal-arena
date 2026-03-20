@@ -62,6 +62,37 @@
     #refresh-icon.spinning { animation: spin 0.8s linear infinite; }
     #global-tooltip { pointer-events:none; position:fixed; z-index:9999; max-width:12rem; padding:.25rem .5rem; border-radius:.25rem; font-size:.75rem; line-height:1rem; font-weight:400; color:#fff; background:#111827; box-shadow:0 4px 6px -1px rgba(0,0,0,.3); white-space:normal; text-align:center; opacity:0; transition:opacity .1s; }
     #global-tooltip.visible { opacity:1; }
+
+    /* ── Pill scroller: fade + arrow ──────────────────────────── */
+    .pill-fade-wrap { position:relative; }
+    .pill-fade-wrap::before,.pill-fade-wrap::after {
+      content:''; position:absolute; top:0; bottom:4px; width:2rem;
+      pointer-events:none; z-index:1; opacity:0; transition:opacity .15s;
+    }
+    .pill-fade-wrap::before { left:0;  background:linear-gradient(to right, white 40%, transparent); }
+    .pill-fade-wrap::after  { right:0; background:linear-gradient(to left,  white 40%, transparent); }
+    .pill-fade-wrap.pf-scrolled::before     { opacity:1; }
+    .pill-fade-wrap.pf-can-right::after     { opacity:1; }
+    @media (prefers-color-scheme:dark) {
+      .pill-fade-wrap::before { background:linear-gradient(to right, #111827 40%, transparent); }
+      .pill-fade-wrap::after  { background:linear-gradient(to left,  #111827 40%, transparent); }
+    }
+    .pill-arrow {
+      display:none; position:absolute; top:50%; transform:translateY(-50%);
+      z-index:2; width:1.5rem; height:1.5rem; border-radius:50%;
+      align-items:center; justify-content:center; cursor:pointer;
+      background:white; border:1px solid #d1d5db;
+      box-shadow:0 1px 4px rgba(0,0,0,.15); color:#374151;
+      padding:0; line-height:1;
+    }
+    .pill-arrow-l { left:-.25rem; }
+    .pill-arrow-r { right:-.25rem; }
+    @media (prefers-color-scheme:dark) {
+      .pill-arrow { background:#1f2937; border-color:#374151; color:#d1d5db; }
+    }
+    @media (hover:hover) {
+      .pill-fade-wrap:hover .pill-arrow.pf-arrow-visible { display:flex; }
+    }
   </style>
 <div id="global-tooltip"></div>
 </head>
@@ -74,31 +105,36 @@
     <button id="burger-drawer-close" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 text-lg leading-none">&times;</button>
   </div>
   <div class="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+    <!-- Date (signals tab) -->
+    <div id="date-signals-section">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Date</p>
+      <div class="pill-fade-wrap"><div id="date-signals-pills" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1"></div></div>
+    </div>
     <!-- Sport (always shown, content differs per tab) -->
     <div>
       <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Sport</p>
-      <div id="sport-pills-drawer" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+      <div class="pill-fade-wrap"><div id="sport-pills-drawer" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div></div>
     </div>
     <!-- Signals + History filters -->
     <div id="drawer-signals-history-section" class="space-y-4">
-      <div>
+      <div id="league-section">
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">League</p>
-        <div id="league-pills" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+        <div id="league-pills" class="space-y-2"></div>
       </div>
       <div id="signal-type-section">
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Signal Type</p>
-        <div id="signal-type-pills" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1"></div>
+        <div class="pill-fade-wrap"><div id="signal-type-pills" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1"></div></div>
       </div>
       <div id="date-hist-section" class="hidden">
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Date</p>
-        <div id="date-hist-pills" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1"></div>
+        <div class="pill-fade-wrap"><div id="date-hist-pills" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1"></div></div>
       </div>
     </div>
     <!-- Analytics filters -->
     <div id="drawer-analytics-section" class="hidden space-y-4">
       <div>
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Date Range</p>
-        <div id="analytics-date-pills-drawer" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+        <div class="pill-fade-wrap"><div id="analytics-date-pills-drawer" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div></div>
       </div>
     </div>
   </div>
@@ -186,14 +222,6 @@
   <div class="max-w-6xl mx-auto px-4 flex flex-col gap-3">
     <div class="flex flex-row items-center justify-start gap-3 w-full">
       <div class="flex items-center gap-2">
-        <input id="team-search" type="text" placeholder="Search team / player…"
-          class="min-w-0 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 w-56" />
-        <select id="date-select"
-          class="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer">
-          <option value="today">Today</option>
-          <option value="tomorrow">Tomorrow</option>
-          <option value="week">Next 7 days</option>
-        </select>
         <button id="filters-toggle"
           class="relative inline-flex flex-none justify-center items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -202,13 +230,8 @@
           <span>Filters</span>
           <span id="filter-badge" class="hidden absolute -top-1.5 -right-1.5 flex items-center justify-center bg-blue-600 text-white text-[10px] font-bold h-4 w-4 rounded-full leading-none"></span>
         </button>
-        <button id="clear-filters-btn" disabled title="Clear all filters"
-          class="inline-flex flex-none justify-center items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:border-gray-700 disabled:text-gray-400 border-blue-500 text-blue-500 hover:enabled:border-red-500 hover:enabled:text-red-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-          <span>Clear</span>
-        </button>
+        <input id="team-search" type="text" placeholder="Search team / player…"
+          class="min-w-0 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 w-56" />
       </div>
     </div>
     <div id="active-filter-chips" class="flex flex-wrap items-center gap-2 empty:hidden"></div>
@@ -226,7 +249,7 @@
 </div>
 
 <!-- ── Main ─────────────────────────────────────────────────── -->
-<main class="max-w-6xl mx-auto px-4 py-5 pb-20 md:pb-5 overflow-x-hidden">
+<main class="max-w-6xl mx-auto px-4 py-5 overflow-x-hidden">
 
   <!-- Welcome banner (shown after checkout) -->
   <div id="welcome-banner" class="hidden mb-4 px-4 py-3 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700 rounded-xl text-sm">
@@ -286,52 +309,39 @@
   <!-- ── ANALYTICS panel ───────────────────────────────────── -->
   <div id="panel-analytics" class="hidden">
 
-    <!-- Stats grid (top of analytics panel) -->
-    <div id="panel-stats" class="mb-5">
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div id="stat-total"   class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
-          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Signals</p>
-          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
-        </div>
-        <div id="stat-avg-odds" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
-          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Avg Odds · EV</p>
-          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
-        </div>
-        <div id="stat-record" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
-          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Record</p>
-          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
-        </div>
-        <div id="stat-winrate" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
-          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Hit Rate</p>
-          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
-        </div>
-        <div id="stat-pnl"     class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 sm:col-span-1 col-span-2 relative">
-          <div class="flex items-center gap-1 mb-1">
-            <p class="text-xs text-gray-500 dark:text-gray-400">Turnover · P&amp;L · ROI</p>
-            <button id="stat-pnl-info-btn" class="relative text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 leading-none" aria-label="Explain values">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-              </svg>
-              <div id="stat-pnl-tooltip" class="hidden absolute top-full left-0 md:left-auto md:right-0 mt-2 w-56 max-w-[85vw] bg-gray-800 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 shadow-lg z-50 leading-relaxed">
-                <p><span class="font-semibold">Turnover</span> — total staked on settled signals</p>
-                <p class="mt-1"><span class="font-semibold">P&amp;L</span> — profit/loss across settled signals</p>
-                <p class="mt-1"><span class="font-semibold">ROI</span> — P&amp;L as a % of turnover</p>
-                <p class="mt-1 text-gray-400">Stakes: €5 (odds ≥3), €10 (2–3), €20 (&lt;2)</p>
-              </div>
-            </button>
-          </div>
-          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
-        </div>
-      </div>
-    </div>
-
     <!-- Loading indicator -->
     <div id="analytics-spinner" class="hidden flex items-center justify-center py-10">
       <span class="spinner"></span>
     </div>
 
+    <!-- Stats grid (top of analytics panel) -->
+    <div id="panel-stats" class="mb-5">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div id="stat-total"   class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center">Total Signals<span class="info-icon relative inline-flex items-center justify-center ml-1 w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-[9px] font-bold leading-none cursor-default flex-shrink-0">i<span class="hidden">Number of +EV signals detected by the model in the selected period</span></span></p>
+          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
+        </div>
+        <div id="stat-avg-odds" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center">Avg Odds · EV<span class="info-icon relative inline-flex items-center justify-center ml-1 w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-[9px] font-bold leading-none cursor-default flex-shrink-0">i<span class="hidden">Average decimal odds across signals / average expected value (model edge over the bookmaker)</span></span></p>
+          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
+        </div>
+        <div id="stat-record" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center">Record<span class="info-icon relative inline-flex items-center justify-center ml-1 w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-[9px] font-bold leading-none cursor-default flex-shrink-0">i<span class="hidden">H = actual hits. EH = expected hits based on model probabilities. When H > EH, the model is outperforming its own estimates.</span></span></p>
+          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
+        </div>
+        <div id="stat-winrate" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center">Hit Rate<span class="info-icon relative inline-flex items-center justify-center ml-1 w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-[9px] font-bold leading-none cursor-default flex-shrink-0">i<span class="hidden">Percentage of settled signals that resulted in a hit (Hits ÷ (Hits + Misses) × 100). Does not imply profitability — odds matter.</span></span></p>
+          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
+        </div>
+        <div id="stat-pnl"     class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 sm:col-span-1 col-span-2">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center">Turnover · P&amp;L · ROI<span class="info-icon relative inline-flex items-center justify-center ml-1 w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-[9px] font-bold leading-none cursor-default flex-shrink-0">i<span class="hidden">Turnover: total staked on settled signals. P&amp;L: profit/loss. ROI: P&amp;L as a % of turnover. Stakes: €5 (odds ≥3), €10 (2–3), €20 (&lt;2).</span></span></p>
+          <p class="text-base font-bold md:whitespace-nowrap break-words">—</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Cumulative P&L curve -->
-    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-4 mb-4">
+    <div id="chart-pnl-container" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-4 mb-4">
       <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Cumulative P&amp;L</p>
       <div class="relative h-52">
         <canvas id="chart-pnl"></canvas>
@@ -339,16 +349,8 @@
     </div>
 
     <!-- ROI by period -->
-    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-4 mb-4">
-      <div class="flex items-center justify-between mb-3">
-        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">ROI by Period</p>
-        <div class="flex items-center gap-1 text-xs font-medium">
-          <button id="roi-toggle-week"
-            class="px-2 py-0.5 rounded-md bg-indigo-500 text-white transition-colors">Week</button>
-          <button id="roi-toggle-month"
-            class="px-2 py-0.5 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">Month</button>
-        </div>
-      </div>
+    <div id="chart-roi-container" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-4 mb-4">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">ROI</p>
       <div class="relative h-48">
         <canvas id="chart-roi"></canvas>
       </div>
@@ -360,10 +362,10 @@
       <table class="w-full text-sm">
         <thead class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/60">
           <tr>
-            <th class="px-4 py-2 text-left font-medium">Sport</th>
-            <th class="px-4 py-2 text-center font-medium">Signals</th>
-            <th class="px-4 py-2 text-center font-medium">ROI</th>
-            <th class="px-4 py-2 text-center font-medium">P&amp;L</th>
+            <th data-sort="sport" data-label="Sport" class="px-4 py-2 text-left font-medium cursor-pointer select-none whitespace-nowrap hover:text-gray-600 dark:hover:text-gray-300">Sport</th>
+            <th data-sort="signals" data-label="Signals" class="px-4 py-2 text-center font-medium cursor-pointer select-none whitespace-nowrap hover:text-gray-600 dark:hover:text-gray-300">Signals</th>
+            <th data-sort="roi" data-label="ROI" class="px-4 py-2 text-center font-medium cursor-pointer select-none whitespace-nowrap hover:text-gray-600 dark:hover:text-gray-300">ROI</th>
+            <th data-sort="pnl" data-label="P&amp;L" class="px-4 py-2 text-center font-medium cursor-pointer select-none whitespace-nowrap hover:text-gray-600 dark:hover:text-gray-300">P&amp;L</th>
           </tr>
         </thead>
         <tbody id="sport-table-body"></tbody>
@@ -409,7 +411,7 @@
 </nav>
 
 <!-- ── Disclaimer footer ─────────────────────────────────────── -->
-<footer class="mt-8 mb-20 md:mb-8 px-4 max-w-6xl mx-auto">
+<footer class="mt-4 mb-20 md:mb-8 px-4 max-w-6xl mx-auto">
   <p class="text-xs text-gray-400 dark:text-gray-600 text-center leading-relaxed">
     For informational purposes only. Not financial or wagering advice. Statistical model outputs do not guarantee profit. Participate responsibly — only stake what you can afford to lose.
     <a href="https://www.begambleaware.org" target="_blank" rel="noopener noreferrer" class="underline hover:text-gray-500">BeGambleAware.org</a>

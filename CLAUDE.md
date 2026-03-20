@@ -9,6 +9,8 @@ Statistical signal finder for football, tennis, and NBA. Fetches live Winamax od
 - `js/app.js` — frontend entry point
 
 ## Architecture
+> **Before making any change, verify it respects layer boundaries.** Each layer must remain abstract from the others — no cross-layer imports or logic leakage. If a change would couple two layers that are currently independent, redesign the approach rather than breaking the abstraction.
+
 ```
 main.py → pipeline/ → extractors/ + models/ → db/ + notifications/
 ```

@@ -163,7 +163,7 @@ const HIST_COLS = [
   { key: "kickoff",       label: "Date",   sortable: true, render: r => { const d = new Date(r.kickoff); const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; const date = d.toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: tz }); const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: tz }); const emoji = SPORT_EMOJI[r.sport] || "🏆"; return `<div class="flex items-center gap-1.5"><span class="text-sm leading-none">${emoji}</span><span class="leading-tight">${esc(date)}<br><span class="text-gray-400 dark:text-gray-500 text-xs">${esc(time)}</span></span></div>`; } },
   { key: "league_name",   label: "League", render: r => `<span class="whitespace-nowrap">${leagueBadge(r.league_key, LEAGUE_SHORT_NAMES[r.league_key] || r.league_name)}</span>` },
   { key: "home_team",     label: "Match",  render: r => `<span class="whitespace-nowrap">${esc(r.home_team)} <span class="text-gray-400 mx-0.5">v</span> ${esc(r.away_team)}</span>` },
-  { key: "outcome_label", label: "Selection",   labelHtml: `Selection${infoIcon("Highest-EV outcome identified by the model")}`, render: r => {
+  { key: "outcome_label", label: "Signal",   labelHtml: `Signal${infoIcon("Highest-EV outcome identified by the model")}`, render: r => {
     const icon = r.result === "hit"  ? `<span class="text-green-500 ml-1.5 text-xs">✓</span>`
                : r.result === "miss" ? `<span class="text-red-400 ml-1.5 text-xs">✗</span>`
                : "";
@@ -214,7 +214,7 @@ function tennisCircuitChip(leagueKey) {
 }
 function tennisTournamentChip(name, surface, round) {
   const cleanName = name.replace(/^(ATP|WTA)\s+/i, "").trim();
-  const parts = [cleanName, round, surface].filter(Boolean);
+  const parts = [cleanName, round].filter(Boolean);
   const text = parts.join(" · ");
   const cls  = surface === "Clay"  ? "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300"
              : surface === "Grass" ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
@@ -392,9 +392,9 @@ export function renderCard(m, opts = {}) {
   return `
   <div class="${cardCls}">
     <${headerTag} ${headerAttr} class="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700 ${headerHoverCls}">
-      <div class="flex flex-wrap items-center gap-2 mr-3 min-w-0">
+      <div class="flex items-center gap-2 mr-3 min-w-0 overflow-hidden">
         <span class="text-base leading-none shrink-0">${SPORT_EMOJI[m.sport] || "🏆"}</span>
-        ${isTennis ? `<div class="flex items-center gap-1.5 flex-wrap min-w-0">${tennisCircuitChip(m.league_key)}<span class="min-w-0">${tennisTournamentChip(m.league_name, m.surface, m.stage)}</span></div>` : leagueBadge(m.league_key, badgeText)}
+        ${isTennis ? `<div class="flex items-center gap-1.5 min-w-0 overflow-hidden">${tennisCircuitChip(m.league_key)}${tennisTournamentChip(m.league_name, m.surface, m.stage)}</div>` : leagueBadge(m.league_key, badgeText)}
         ${m.is_second_leg ? `<span class="text-[11px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded font-semibold whitespace-nowrap flex items-center gap-1">2nd Leg ${m.agg_home != null ? '<span class="opacity-70 font-normal">| Agg ' + m.agg_home + "–" + m.agg_away + "</span>" : ""}</span>` : ""}
         ${m.h2h_used ? `<span class="text-xs bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300 px-1.5 rounded">H2H</span>` : ""}
       </div>
@@ -453,19 +453,33 @@ export function renderSportPills() {
 
 // ── League pills ───────────────────────────────────────────────
 export function renderLeaguePills(matches) {
-  const counts = {};
-  for (const m of matches) counts[m.league_key] = (counts[m.league_key] || { name: m.league_name, n: 0 });
-  for (const m of matches) counts[m.league_key].n++;
+  const section = document.getElementById("league-section");
 
-
-  let html = `<button class="league-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeLeague === "all" ? PILL_ACTIVE : PILL_INACTIVE}" data-league="all">
-    All <span class="ml-1 opacity-70">(${matches.length})</span>
-  </button>`;
-  for (const [key, { name, n }] of Object.entries(counts)) {
-    html += `<button class="league-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${leaguePillCls(key, state.activeLeague === key)}" data-league="${esc(key)}">
-      ${esc(LEAGUE_SHORT_NAMES[key] || name)} <span class="ml-1 opacity-70">(${n})</span>
-    </button>`;
+  // Hide the whole section when no specific sport is selected, or no matches exist
+  if (state.activeSport === "all" || matches.length === 0) {
+    section?.classList.add("hidden");
+    return;
   }
+  section?.classList.remove("hidden");
+
+  // Count leagues for the active sport only
+  const leagues = {};
+  for (const m of matches) {
+    if (m.sport !== state.activeSport) continue;
+    if (!leagues[m.league_key]) leagues[m.league_key] = { name: m.league_name, n: 0 };
+    leagues[m.league_key].n++;
+  }
+
+  const pillCls = (key) => `league-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${leaguePillCls(key, state.activeLeague === key)}`;
+  const allCls  = `league-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeLeague === "all" ? PILL_ACTIVE : PILL_INACTIVE}`;
+
+  let html = `<div class="pill-fade-wrap"><div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+    <button class="${allCls}" data-league="all">All</button>`;
+  for (const [key, { name }] of Object.entries(leagues)) {
+    html += `<button class="${pillCls(key)}" data-league="${esc(key)}">${esc(LEAGUE_SHORT_NAMES[key] || name)}</button>`;
+  }
+  html += `</div></div>`;
+
   document.getElementById("league-pills").innerHTML = html;
   document.querySelectorAll(".league-pill").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -478,10 +492,25 @@ export function renderLeaguePills(matches) {
 }
 
 // ── Date range pills / select ──────────────────────────────────
+const DATE_RANGES_SIGNALS = [
+  { key: "today",    label: "Today" },
+  { key: "tomorrow", label: "Tomorrow" },
+  { key: "week",     label: "Next 7 days" },
+];
+
 export function renderDatePills() {
-  // Sync the standalone date <select> (desktop action bar) with current state
-  const sel = document.getElementById("date-select");
-  if (sel && sel.value !== state.activeDateSignals) sel.value = state.activeDateSignals;
+  // Signals date pills (filter drawer, all viewports)
+  document.getElementById("date-signals-pills").innerHTML = DATE_RANGES_SIGNALS.map(t =>
+    `<button class="date-signals-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeDateSignals === t.key ? PILL_ACTIVE : PILL_INACTIVE}" data-range="${t.key}">${t.label}</button>`
+  ).join("");
+
+  document.querySelectorAll(".date-signals-pill").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.activeDateSignals = btn.dataset.range;
+      updateFilterUI();
+      renderSignalsPanel();
+    });
+  });
 
   // History date pills (live in the burger drawer)
   document.getElementById("date-hist-pills").innerHTML = DATE_RANGES_HIST.map(t =>
@@ -493,11 +522,11 @@ export function renderDatePills() {
 }
 
 // ── Signal-type pills ─────────────────────────────────────────
-export function renderSignalTypePills() {
+export function renderSignalTypePills(matches) {
   const container = document.getElementById("signal-type-pills");
   const section   = document.getElementById("signal-type-section");
   const types     = SIGNAL_TYPES[state.activeSport];
-  if (!types) {
+  if (!types || (matches && matches.length === 0)) {
     section.classList.add("hidden");
     state.activeSignalType = "all";
     return;
@@ -561,11 +590,11 @@ export function renderBurgerDrawerPills() {
     }
   }
 
-  // Analytics date range pills
+  // Analytics date range + period pills
   if (isAnalytics) {
+    const pillBase = "flex-none px-3 py-1 rounded-full text-sm font-medium transition-colors";
     const dateEl = document.getElementById("analytics-date-pills-drawer");
     if (dateEl) {
-      const pillBase = "flex-none px-3 py-1 rounded-full text-sm font-medium transition-colors";
       const ranges = [
         { key: "all", label: "All time" },
         { key: "30d", label: "30d" },
@@ -576,9 +605,51 @@ export function renderBurgerDrawerPills() {
         const cls = `${pillBase} ${state.analyticsActiveDateRange === r.key ? PILL_ACTIVE : PILL_INACTIVE}`;
         return `<button class="analytics-date-btn ${cls}" data-range="${r.key}">${r.label}</button>`;
       }).join("");
-      // Analytics date pill clicks handled by event delegation in analytics.js
     }
   }
+  requestAnimationFrame(initPillScrollers);
+}
+
+// ── Pill scroller: fade gradient + arrow buttons ───────────────
+export function initPillScrollers() {
+  document.querySelectorAll(".pill-fade-wrap").forEach(wrap => {
+    const scroller = wrap.querySelector(".overflow-x-auto");
+    if (!scroller) return;
+
+    // Remove stale arrows (happens when league-pills innerHTML is rebuilt)
+    wrap.querySelectorAll(".pill-arrow").forEach(b => b.remove());
+
+    // Inject chevron buttons
+    const SVG_L = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:.75rem;height:.75rem"><path d="M15 18l-6-6 6-6"/></svg>`;
+    const SVG_R = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:.75rem;height:.75rem"><path d="M9 18l6-6-6-6"/></svg>`;
+    const btnL = document.createElement("button");
+    const btnR = document.createElement("button");
+    btnL.className = "pill-arrow pill-arrow-l";
+    btnR.className = "pill-arrow pill-arrow-r";
+    btnL.setAttribute("aria-hidden", "true");
+    btnR.setAttribute("aria-hidden", "true");
+    btnL.innerHTML = SVG_L;
+    btnR.innerHTML = SVG_R;
+    wrap.appendChild(btnL);
+    wrap.appendChild(btnR);
+    btnL.addEventListener("click", () => scroller.scrollBy({ left: -120, behavior: "smooth" }));
+    btnR.addEventListener("click", () => scroller.scrollBy({ left:  120, behavior: "smooth" }));
+
+    // Update fade classes + arrow visibility
+    const update = () => {
+      const canLeft  = scroller.scrollLeft > 2;
+      const canRight = scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 2;
+      wrap.classList.toggle("pf-scrolled",  canLeft);
+      wrap.classList.toggle("pf-can-right", canRight);
+      btnL.classList.toggle("pf-arrow-visible", canLeft);
+      btnR.classList.toggle("pf-arrow-visible", canRight);
+    };
+
+    if (scroller._pfUpdate) scroller.removeEventListener("scroll", scroller._pfUpdate);
+    scroller._pfUpdate = update;
+    scroller.addEventListener("scroll", update, { passive: true });
+    requestAnimationFrame(update);
+  });
 }
 
 // ── Filter UI (badge + chips) ──────────────────────────────────
@@ -622,20 +693,27 @@ export function updateFilterUI() {
   if (count > 0) { badge.textContent = count; badge.classList.remove("hidden"); }
   else           { badge.classList.add("hidden"); }
 
-  const clearBtn = document.getElementById("clear-filters-btn");
-  clearBtn.disabled = count === 0;
   const resetBtn = document.getElementById("burger-reset-btn");
   if (resetBtn) resetBtn.disabled = count === 0;
 
-  const chipsHtml = active.map(f =>
+  const renderChip = f =>
     `<span class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full border border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-medium">
       ${esc(f.label)}
       <button data-filter-key="${f.key}" class="chip-remove ml-0.5 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 w-4 h-4 flex items-center justify-center leading-none" aria-label="Remove filter">&times;</button>
-    </span>`
-  ).join("");
-  document.getElementById("active-filter-chips").innerHTML = chipsHtml;
+    </span>`;
+  const renderPermanentChip = label =>
+    `<span class="inline-flex items-center px-2 py-0.5 rounded-full border border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-medium">${esc(label)}</span>`;
+
+  const dateChip = state.mainTab === "signals"
+    ? renderPermanentChip(DATE_RANGES_SIGNALS.find(r => r.key === state.activeDateSignals)?.label ?? state.activeDateSignals)
+    : "";
+
+  document.getElementById("active-filter-chips").innerHTML = dateChip + active.map(renderChip).join("");
+
   const mobileChips = document.getElementById("active-filter-chips-mobile");
-  if (mobileChips) mobileChips.innerHTML = chipsHtml;
+  if (mobileChips) {
+    mobileChips.innerHTML = dateChip + active.map(renderChip).join("");
+  }
 }
 // Alias kept for any legacy callers
 export const updateFilterBadge = updateFilterUI;
@@ -667,9 +745,7 @@ export function setMainTab(tab) {
   document.getElementById("panel-signals").classList.toggle("hidden", tab !== "signals");
   document.getElementById("panel-history").classList.toggle("hidden", tab !== "history");
   document.getElementById("panel-analytics").classList.toggle("hidden", tab !== "analytics");
-  // date-select is in the desktop action bar (signals tab only)
-  document.getElementById("date-select")?.classList.toggle("hidden", tab !== "signals");
-  // date history pills live in the burger drawer
+  document.getElementById("date-signals-section")?.classList.toggle("hidden", tab !== "signals");
   document.getElementById("date-hist-section")?.classList.toggle("hidden", tab !== "history");
 
   document.querySelectorAll(".main-tab-btn").forEach(btn => {
@@ -730,8 +806,9 @@ export function renderSignalsPanel() {
 
   renderSportPills();
   renderLeaguePills(matchesForCounts);
-  renderSignalTypePills();
+  renderSignalTypePills(matchesForCounts);
   renderDatePills();
+  requestAnimationFrame(initPillScrollers);
 
   let filtered = allMatches;
 
@@ -772,7 +849,11 @@ export function renderSignalsPanel() {
 
   const container = document.getElementById("cards-container");
   if (filtered.length === 0) {
-    container.innerHTML = `<p class="text-center text-gray-400 py-12">No signals match the current filters.</p>`;
+    const hasFilters = state.activeSport !== "all" || state.activeLeague !== "all" || state.activeSignalType !== "all" || state.teamSearch;
+    const resetLink = hasFilters
+      ? ` <button data-action="signals-reset-filters" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Reset filters</button>`
+      : "";
+    container.innerHTML = `<p class="text-center text-gray-400 py-12">No signals match the current filters.${resetLink}</p>`;
     return;
   }
 
@@ -824,7 +905,7 @@ export function updateStatsGrid(filteredData) {
     ? (hits.length >= misses.length ? "text-green-500" : "text-red-500")
     : "";
   const hitRateHtml = settled
-    ? `<span class="${hitRateColor}">${misses.length ? (hits.length / misses.length * 100).toFixed(1) : "∞"}%</span>`
+    ? `<span class="${hitRateColor}">${(hits.length + misses.length) ? (hits.length / (hits.length + misses.length) * 100).toFixed(1) : "—"}%</span>`
     : "—";
 
   const pnl    = hits.reduce((s, r)   => s + (r.odds - 1) * stakeFor(r.odds), 0)
@@ -855,6 +936,19 @@ export function updateStatsGrid(filteredData) {
   if (staked) setColor("stat-pnl", pnl >= 0);
 }
 
+// ── History empty-state helper ─────────────────────────────────
+function histEmptyHTML() {
+  const labelMap = { settled: "settled signals", hit: "hits", miss: "misses", pending: "pending signals" };
+  const label = labelMap[state.histStatusFilter] || "signals";
+  const hasFilters = state.activeSport !== "all" || state.activeLeague !== "all"
+    || state.activeSignalType !== "all" || !!state.teamSearch || state.activeDateHist !== "all";
+  const msg = hasFilters ? `No ${label} match the current filters.` : `No ${label} yet.`;
+  const resetLink = hasFilters
+    ? `<button data-action="hist-reset-filters" class="block mx-auto mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Reset filters</button>`
+    : "";
+  return { msg, resetLink };
+}
+
 // ── History panel ──────────────────────────────────────────────
 export function renderHistory() {
   renderDatePills();
@@ -870,8 +964,8 @@ export function renderHistory() {
   document.querySelectorAll(".hist-status-btn").forEach(btn => {
     const isActive = btn.dataset.status === state.histStatusFilter;
     btn.className = isActive
-      ? "hist-status-btn inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors bg-indigo-50 border border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400"
-      : "hist-status-btn inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors bg-white border border-gray-200 text-gray-600 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700";
+      ? "hist-status-btn inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors bg-indigo-50 border border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400"
+      : "hist-status-btn inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors bg-white border border-gray-200 text-gray-600 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700";
     const label = { settled: "Settled", hit: "Hit", miss: "Miss", pending: "Pending" }[btn.dataset.status];
     const n = tabCounts[btn.dataset.status] ?? 0;
     btn.innerHTML = `${label} <span class="text-xs opacity-60">(${n})</span>`;
@@ -894,7 +988,8 @@ export function renderHistory() {
   // Mobile: card layout
   const container = document.getElementById("hist-cards-container");
   if (sorted.length === 0) {
-    container.innerHTML = `<p class="text-center text-gray-400 py-12 whitespace-normal">No history yet.</p>`;
+    const { msg, resetLink } = histEmptyHTML();
+    container.innerHTML = `<p class="text-center text-gray-400 py-12 whitespace-normal">${msg}</p>${resetLink}`;
   } else {
     const matches = groupIntoMatches(sorted);
     const byDate  = new Map();
@@ -934,7 +1029,9 @@ export function renderHistory() {
 
   const tbody = document.getElementById("hist-tbody");
   if (sorted.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="${HIST_COLS.length}" class="px-4 py-10 text-center text-gray-400 whitespace-normal">No history yet.</td></tr>`;
+    const { msg, resetLink } = histEmptyHTML();
+    tbody.innerHTML = `<tr><td colspan="${HIST_COLS.length}" class="px-4 py-10 text-center text-gray-400 whitespace-normal">${msg}${resetLink}</td></tr>`;
+    updateHistoryCountUI();
     return;
   }
 
@@ -968,6 +1065,7 @@ export function renderHistory() {
       return `<tr class="${rowBgCls} ${borderCls} hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">${cells}</tr>`;
     }).join("");
   }).join("");
+  updateHistoryCountUI();
 }
 
 // ── History pagination helpers ─────────────────────────────────
@@ -976,15 +1074,20 @@ export function updateHistoryCountUI() {
   const spinner = document.getElementById("history-spinner");
   if (!label) return;
   spinner.classList.add("hidden");
+  const noun = { hit: "hits", miss: "misses", pending: "pending signals" }[state.histStatusFilter] ?? "signals";
+  if (state.histStatusFilter === "pending") {
+    label.textContent = state.pendingData.length > 0 ? `All ${state.pendingData.length} pending signals loaded` : "";
+    return;
+  }
   const shown = state.historyLoaded.length;
   if (state.historyTotal === 0) {
     label.textContent = "";
   } else if (shown >= state.historyTotal) {
-    label.textContent = `All ${state.historyTotal} signals loaded`;
+    label.textContent = `All ${state.historyTotal} ${noun} loaded`;
     const sentinel = document.getElementById("history-sentinel");
     if (state.historyObserver && sentinel) state.historyObserver.unobserve(sentinel);
   } else {
-    label.textContent = `${shown} / ${state.historyTotal} signals`;
+    label.textContent = `${shown} / ${state.historyTotal} ${noun}`;
   }
 }
 

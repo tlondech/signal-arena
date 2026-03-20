@@ -17,12 +17,13 @@ const isDark    = () => window.matchMedia('(prefers-color-scheme: dark)').matche
 const gridColor = () => isDark() ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
 const tickColor = () => isDark() ? '#9ca3af' : '#6b7280';
 
+// ── Sport table sort state ─────────────────────────────────────
+const sportSort = { col: 'sport', dir: 'asc' };
+
 // ── Chart instances ────────────────────────────────────────────
 let pnlChart = null;
 let roiChart = null;
 
-// ── Granularity state ──────────────────────────────────────────
-let roiGranularity = 'week';
 
 // ── Data builders ──────────────────────────────────────────────
 function buildPnlData(records) {
@@ -128,7 +129,8 @@ function renderPnlChart(records) {
 }
 
 function renderRoiChart(records) {
-  const { labels, values } = buildRoiData(records, roiGranularity);
+  const gran = (state.analyticsActiveDateRange === '30d' || state.analyticsActiveDateRange === '3m') ? 'week' : 'month';
+  const { labels, values } = buildRoiData(records, gran);
   const ctx = document.getElementById('chart-roi')?.getContext('2d');
   if (!ctx) return;
   roiChart?.destroy();
@@ -172,23 +174,48 @@ function renderSportTable(records) {
     return;
   }
   container.classList.remove('hidden');
+
   const rows = buildSportData(records);
-  const label = { football: '⚽ Football', basketball: '🏀 Basketball', tennis: '🎾 Tennis' };
-  tbody.innerHTML = rows.length
-    ? rows.map(r => `
+  const label = { football: 'Football', basketball: 'Basketball', tennis: 'Tennis' };
+
+  // Sort rows
+  const { col, dir } = sportSort;
+  const sorted = [...rows].sort((a, b) => {
+    const av = col === 'sport' ? (label[a.sport] ?? a.sport) : a[col];
+    const bv = col === 'sport' ? (label[b.sport] ?? b.sport) : b[col];
+    const cmp = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
+    return dir === 'asc' ? cmp : -cmp;
+  });
+
+  // Update header indicators
+  document.querySelectorAll('#sport-table-container th[data-sort]').forEach(th => {
+    const isActive = th.dataset.sort === col;
+    const arrow = isActive ? (dir === 'asc' ? '↑' : '↓') : '-';
+    th.innerHTML = `${th.dataset.label} <span class="opacity-50">${arrow}</span>`;
+  });
+
+  tbody.innerHTML = sorted.length
+    ? sorted.map(r => `
         <tr class="border-t border-gray-200 dark:border-gray-800">
-          <td class="px-4 py-3 text-sm font-medium">${label[r.sport] ?? r.sport}</td>
-          <td class="px-4 py-3 text-sm text-center text-gray-500">${r.signals}</td>
-          <td class="px-4 py-3 text-sm text-center font-medium ${r.roi >= 0 ? 'text-green-500' : 'text-red-500'}">${r.roi >= 0 ? '+' : ''}${r.roi}%</td>
-          <td class="px-4 py-3 text-sm text-center font-medium ${r.pnl >= 0 ? 'text-green-500' : 'text-red-500'}">${r.pnl >= 0 ? '+' : ''}€${r.pnl}</td>
+          <td class="px-4 py-3 text-sm font-medium whitespace-nowrap">${label[r.sport] ?? r.sport}</td>
+          <td class="px-4 py-3 text-sm text-center text-gray-500 whitespace-nowrap">${r.signals}</td>
+          <td class="px-4 py-3 text-sm text-center font-medium whitespace-nowrap ${r.roi >= 0 ? 'text-green-500' : 'text-red-500'}">${r.roi >= 0 ? '+' : ''}${r.roi}%</td>
+          <td class="px-4 py-3 text-sm text-center font-medium whitespace-nowrap ${r.pnl >= 0 ? 'text-green-500' : 'text-red-500'}">${r.pnl >= 0 ? '+' : ''}€${r.pnl}</td>
         </tr>`).join('')
     : '<tr><td colspan="4" class="px-4 py-6 text-center text-sm text-gray-400">No settled data yet.</td></tr>';
 }
 
 // ── Public API ─────────────────────────────────────────────────
 export async function refreshAnalytics() {
-  const spinner = document.getElementById('analytics-spinner');
+  const spinner  = document.getElementById('analytics-spinner');
+  const content  = [
+    document.getElementById('panel-stats'),
+    document.getElementById('chart-pnl-container'),
+    document.getElementById('chart-roi-container'),
+    document.getElementById('sport-table-container'),
+  ];
   spinner?.classList.remove('hidden');
+  content.forEach(el => el?.classList.add('hidden'));
   try {
     state.analyticsData = await fetchAllHistory();
     updateStatsGrid(state.analyticsData);
@@ -197,27 +224,12 @@ export async function refreshAnalytics() {
     renderSportTable(state.analyticsData);
   } finally {
     spinner?.classList.add('hidden');
+    content.forEach(el => el?.classList.remove('hidden'));
   }
 }
 
 
 export function setupAnalytics() {
-  // ROI period toggle (week / month)
-  const weekBtn  = document.getElementById('roi-toggle-week');
-  const monthBtn = document.getElementById('roi-toggle-month');
-  if (weekBtn && monthBtn) {
-    function activateRoi(btn, other, gran) {
-      btn.classList.add('bg-indigo-500', 'text-white');
-      btn.classList.remove('text-gray-500', 'dark:text-gray-400');
-      other.classList.remove('bg-indigo-500', 'text-white');
-      other.classList.add('text-gray-500', 'dark:text-gray-400');
-      roiGranularity = gran;
-      renderRoiChart(state.analyticsData);
-    }
-    weekBtn.addEventListener('click',  () => activateRoi(weekBtn,  monthBtn, 'week'));
-    monthBtn.addEventListener('click', () => activateRoi(monthBtn, weekBtn,  'month'));
-  }
-
   // Analytics filter pills live in the burger drawer (dynamically rendered).
   // Use document-level event delegation so clicks always work regardless of re-renders.
   document.addEventListener('click', e => {
@@ -233,6 +245,13 @@ export function setupAnalytics() {
       state.analyticsActiveDateRange = dateBtn.dataset.range;
       renderBurgerDrawerPills();
       refreshAnalytics();
+    }
+    const sortTh = e.target.closest('#sport-table-container th[data-sort]');
+    if (sortTh) {
+      const col = sortTh.dataset.sort;
+      sportSort.dir = sportSort.col === col && sportSort.dir === 'asc' ? 'desc' : 'asc';
+      sportSort.col = col;
+      renderSportTable(state.analyticsData);
     }
   });
 }
