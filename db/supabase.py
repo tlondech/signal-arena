@@ -189,7 +189,7 @@ def settle_supabase_signals(supabase: Client, all_fixtures, name_map: dict | Non
 
     # Normalise fixtures to a uniform (home_team, away_team, kickoff_dt, home_score, away_score) tuple.
     # MatchData objects carry pre-resolved canonical names; raw dicts need resolve_team_name().
-    fixture_index: dict[tuple, tuple[datetime, int, int]] = {}
+    fixture_index: dict[tuple, tuple[datetime, int | None, int | None]] = {}
     for f in all_fixtures:
         if isinstance(f, _MatchData):
             home_c, away_c = f.home_team, f.away_team
@@ -388,18 +388,20 @@ def settle_tennis_supabase_signals(supabase: Client) -> int:
 
 def backfill_tennis_scores(supabase: Client) -> int:
     """
-    Backfills actual_home_score / actual_away_score for already-settled tennis
-    signals that are missing scores (e.g. settled before score tracking was added).
+    Backfills actual_home_score / actual_away_score / score_detail for already-settled
+    tennis signals that are missing either set scores or the per-set breakdown string
+    (e.g. settled before score tracking was added).
     """
     from extractors.espn_tennis_client import ESPNTennisClient
 
     try:
+        # Fetch rows missing set scores OR missing score_detail
         resp = (
             supabase.table("signal_history")
-            .select("id,kickoff,home_team,away_team,outcome")
+            .select("id,kickoff,home_team,away_team,outcome,actual_home_score")
             .eq("settled", True)
             .eq("sport", "tennis")
-            .is_("actual_home_score", "null")
+            .or_("actual_home_score.is.null,score_detail.is.null")
             .execute()
         )
     except Exception as exc:
@@ -430,18 +432,21 @@ def backfill_tennis_scores(supabase: Client) -> int:
         if matched is None:
             continue
 
-        home_sets, away_sets = _tennis_sets(matched, home)
-        if home_sets is None:
-            continue
-
-        payload = matched.to_settlement_dict()
-        # Override with corrected per-signal set counts (winner may be away_team for this signal)
-        payload["actual_home_score"] = home_sets
-        payload["actual_away_score"] = away_sets
         score_str = matched.metadata.get("score")
+        payload: dict = {}
+
+        if row.get("actual_home_score") is None:
+            home_sets, away_sets = _tennis_sets(matched, home)
+            if home_sets is None:
+                continue
+            payload["actual_home_score"] = home_sets
+            payload["actual_away_score"] = away_sets
+
         if score_str:
             payload["score_detail"] = score_str
-        payload.pop("settled", None)  # don't flip settled=True on a backfill
+
+        if not payload:
+            continue
 
         try:
             supabase.table("signal_history").update(payload).eq("id", row["id"]).execute()

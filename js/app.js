@@ -393,3 +393,38 @@ async function init() {
 }
 
 init();
+
+// Global fixed tooltip for .info-icon elements (avoids overflow-x-auto clipping)
+const _gtt = document.getElementById("global-tooltip");
+document.addEventListener("mouseenter", e => {
+  const icon = e.target.closest(".info-icon");
+  if (!icon || !_gtt) return;
+  const bubble = icon.querySelector("span");
+  if (!bubble) return;
+  _gtt.textContent = bubble.textContent;
+  _gtt.classList.add("visible");
+  const ir = icon.getBoundingClientRect();
+  const gap = 6;
+  // Measure tooltip to decide above vs below
+  _gtt.style.top = "0"; _gtt.style.left = "0";
+  const tw = _gtt.offsetWidth, th = _gtt.offsetHeight;
+  // Clamp to the nearest scrollable ancestor's right edge (e.g. overflow-x-auto table)
+  let rightBound = window.innerWidth - 4;
+  let el = icon.parentElement;
+  while (el && el !== document.body) {
+    const ox = window.getComputedStyle(el).overflowX;
+    if (ox === "auto" || ox === "scroll" || ox === "hidden") {
+      rightBound = Math.min(rightBound, el.getBoundingClientRect().right - 4);
+      break;
+    }
+    el = el.parentElement;
+  }
+  const left = Math.min(Math.max(ir.left + ir.width / 2 - tw / 2, 4), rightBound - tw);
+  const top = ir.top - th - gap < 0 ? ir.bottom + gap : ir.top - th - gap;
+  _gtt.style.left = left + "px";
+  _gtt.style.top  = top  + "px";
+}, true);
+document.addEventListener("mouseleave", e => {
+  if (!e.target.closest(".info-icon") || !_gtt) return;
+  _gtt.classList.remove("visible");
+}, true);

@@ -60,7 +60,10 @@
     #hist-tbody tr:last-child td { padding-bottom: 12px; }
     body { overscroll-behavior-y: contain; }
     #refresh-icon.spinning { animation: spin 0.8s linear infinite; }
+    #global-tooltip { pointer-events:none; position:fixed; z-index:9999; max-width:12rem; padding:.25rem .5rem; border-radius:.25rem; font-size:.75rem; line-height:1rem; font-weight:400; color:#fff; background:#111827; box-shadow:0 4px 6px -1px rgba(0,0,0,.3); white-space:normal; text-align:center; opacity:0; transition:opacity .1s; }
+    #global-tooltip.visible { opacity:1; }
   </style>
+<div id="global-tooltip"></div>
 </head>
 <body class="bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen overflow-x-hidden">
 
@@ -189,7 +192,7 @@
           class="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer">
           <option value="today">Today</option>
           <option value="tomorrow">Tomorrow</option>
-          <option value="week">This week</option>
+          <option value="week">Next 7 days</option>
         </select>
         <button id="filters-toggle"
           class="relative inline-flex flex-none justify-center items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">

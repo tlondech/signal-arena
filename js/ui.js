@@ -3,7 +3,7 @@ import { fetchHistoryPage, fetchPendingSignals } from "./api.js";
 
 // ── Info tooltip helper ────────────────────────────────────────
 function infoIcon(text) {
-  return `<span class="info-icon inline-flex items-center justify-center ml-1 w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-[9px] font-bold leading-none cursor-default flex-shrink-0" title="${esc(text)}">i</span>`;
+  return `<span class="info-icon relative inline-flex items-center justify-center ml-1 w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-[9px] font-bold leading-none cursor-default flex-shrink-0">i<span class="hidden">${esc(text)}</span></span>`;
 }
 
 // ── Formatting helpers ─────────────────────────────────────────
@@ -33,6 +33,14 @@ function ordinal(n) {
   if (!n) return "";
   const s = ["th", "st", "nd", "rd"], v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+function orientSetScores(detail, homeScore, awayScore) {
+  if (!detail) return detail;
+  // score_detail is stored from the winner's perspective; mirror each set when away won
+  if (awayScore > homeScore) {
+    return detail.split(" ").map(s => { const [a, b] = s.split("-"); return `${b}-${a}`; }).join(" ");
+  }
+  return detail;
 }
 function evClass(ev) {
   if (ev >= 0.20) return "ev-danger";
@@ -117,12 +125,8 @@ const LEAGUE_COLORS = {
   // Basketball
   nba:          "bg-red-100     text-red-800     dark:bg-red-950/60     dark:text-red-300",
 };
-function leaguePillCls(key, isActive) {
-  const base = LEAGUE_COLORS[key]
-    || (key.startsWith("tennis_atp_") ? "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300"
-      : key.startsWith("tennis_wta_") ? "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300"
-      : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300");
-  return isActive ? `${base} ring-2 ring-current ring-offset-1` : `${base} opacity-70 hover:opacity-100`;
+function leaguePillCls(_key, isActive) {
+  return isActive ? PILL_ACTIVE : PILL_INACTIVE;
 }
 export const SPORTS = [
   { key: "football",   label: "Football" },
@@ -156,38 +160,56 @@ const DATE_RANGES_HIST = [
   { key: "3m",  label: "Last 3 months" },
 ];
 const HIST_COLS = [
-  { key: "kickoff",       label: "Date",   sortable: true, render: r => { const d = new Date(r.kickoff); const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; const date = d.toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: tz }); const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: tz }); return `<span class="whitespace-nowrap leading-tight">${esc(date)}<br><span class="text-gray-400 dark:text-gray-500 text-xs">${esc(time)}</span></span>`; } },
+  { key: "kickoff",       label: "Date",   sortable: true, render: r => { const d = new Date(r.kickoff); const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; const date = d.toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: tz }); const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: tz }); const emoji = SPORT_EMOJI[r.sport] || "🏆"; return `<div class="flex items-start gap-1.5"><span class="text-sm mt-px leading-none">${emoji}</span><span class="leading-tight">${esc(date)}<br><span class="text-gray-400 dark:text-gray-500 text-xs">${esc(time)}</span></span></div>`; } },
   { key: "league_name",   label: "League", render: r => `<span class="whitespace-nowrap">${leagueBadge(r.league_key, LEAGUE_SHORT_NAMES[r.league_key] || r.league_name)}</span>` },
   { key: "home_team",     label: "Match",  render: r => `<span class="whitespace-nowrap">${esc(r.home_team)} <span class="text-gray-400 mx-0.5">v</span> ${esc(r.away_team)}</span>` },
-  { key: "outcome_label", label: "Selection",   labelHtml: `Selection${infoIcon("Highest-EV outcome identified by the model")}`, render: r => `<span class="whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium ${signalBadgeCls(r.result, true)}">${esc(r.outcome_label)}</span>` },
+  { key: "outcome_label", label: "Selection",   labelHtml: `Selection${infoIcon("Highest-EV outcome identified by the model")}`, render: r => {
+    const icon = r.result === "hit"  ? `<span class="text-green-500 ml-1.5 text-xs">✓</span>`
+               : r.result === "miss" ? `<span class="text-red-400 ml-1.5 text-xs">✗</span>`
+               : "";
+    return `<span class="whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium ${signalBadgeCls(r.result, false)}">${esc(r.outcome_label)}</span>${icon}`;
+  } },
   { key: "_score",        label: "Score",  render: r => {
     if (r.actual_home_score == null) return "—";
-    const isTennis = (r.league_key || "").startsWith("tennis_");
-    const txt = `${r.actual_home_score}–${r.actual_away_score}${isTennis ? " sets" : ""}`;
-    if (isTennis && r.score_detail) return `<span class="border-b border-dashed border-gray-400 dark:border-gray-500 cursor-default whitespace-nowrap" title="${esc(r.score_detail)}">${txt}</span>`;
-    return txt;
+    const isTennis     = (r.league_key || "").startsWith("tennis_");
+    const isBasketball = r.sport === "basketball" || r.league_key === "nba";
+    const txt = `${r.actual_home_score}–${r.actual_away_score}`;
+    const scoreSpan = isTennis && r.score_detail
+      ? `<span class="border-b border-dashed border-gray-400 dark:border-gray-500 cursor-default whitespace-nowrap" title="${esc(orientSetScores(r.score_detail, r.actual_home_score, r.actual_away_score))}">${txt}</span>`
+      : `<span class="whitespace-nowrap">${txt}</span>`;
+    const isTotal = isBasketball && r.outcome && (r.outcome.startsWith("over_") || r.outcome.startsWith("under_"));
+    const mathCtx = isTotal
+      ? `<div class="text-[10px] text-gray-400 dark:text-gray-500">Total: ${r.actual_home_score + r.actual_away_score}</div>`
+      : "";
+    return `<div class="text-sm leading-tight">${scoreSpan}</div>${mathCtx}`;
   }, sortKey: "actual_home_score", align: "center" },
-  { key: "odds",          label: "Odds",   labelHtml: `Odds${infoIcon("Decimal odds at time of signal detection")}`,  render: r => `<span class="font-mono">${Number(r.odds).toFixed(2)}</span>`, align: "right" },
-  { key: "true_prob",     label: "Prob%",  labelHtml: `Prob%${infoIcon("Model's estimated win probability")}`, render: r => `${(r.true_prob * 100).toFixed(1)}%`, align: "right" },
-  { key: "ev",            label: "EV%",    labelHtml: `EV%${infoIcon("Expected value — edge over the bookmaker")}`,  render: r => evLabel(r.ev), align: "right" },
+  { key: "odds",          label: "Odds",   labelHtml: `Odds${infoIcon("Decimal odds at time of signal detection", "right")}`,  render: r => `<span class="font-mono">${Number(r.odds).toFixed(2)}</span>`, align: "right" },
+  { key: "true_prob",     label: "Prob%",  labelHtml: `Prob%${infoIcon("Model's estimated win probability", "right")}`, render: r => `${(r.true_prob * 100).toFixed(1)}%`, align: "right" },
+  { key: "ev",            label: "EV%",    labelHtml: `EV%${infoIcon("Expected value — edge over the bookmaker", "right")}`,  render: r => evLabel(r.ev), align: "right" },
 ];
 
+// ── Shared UI constants ────────────────────────────────────────
+const PILL_ACTIVE   = "bg-indigo-600 text-white";
+const PILL_INACTIVE = "border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400";
+const TENNIS_ATP_CLS = "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300";
+const TENNIS_WTA_CLS = "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300";
+
 // ── Badge / chip helpers ───────────────────────────────────────
+
 function leagueBadge(key, name) {
   let cls = LEAGUE_COLORS[key];
   if (!cls) {
-    if      (key.startsWith("tennis_atp_")) cls = "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300";
-    else if (key.startsWith("tennis_wta_")) cls = "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300";
+    if      (key.startsWith("tennis_atp_")) cls = TENNIS_ATP_CLS;
+    else if (key.startsWith("tennis_wta_")) cls = TENNIS_WTA_CLS;
     else cls = "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
   }
-  return `<span class="inline-block px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${cls}">${esc(name)}</span>`;
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${cls}">${esc(name)}</span>`;
 }
 
 function tennisCircuitChip(leagueKey) {
   const isATP = leagueKey.startsWith("tennis_atp_");
   const label = isATP ? "ATP" : "WTA";
-  const cls   = isATP ? "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300"
-                      : "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300";
+  const cls   = isATP ? TENNIS_ATP_CLS : TENNIS_WTA_CLS;
   return `<span class="inline-block px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${cls}">${label}</span>`;
 }
 function tennisTournamentChip(name, surface, round) {
@@ -221,50 +243,6 @@ export function groupIntoMatches(rows) {
     const key = `${row.kickoff}|${row.home_team}|${row.away_team}`;
     if (!map.has(key)) {
       map.set(key, {
-        kickoff:        row.kickoff,
-        league_key:     row.league_key,
-        league_name:    row.league_name,
-        home_team:      row.home_team,
-        away_team:      row.away_team,
-        stage:          row.stage,
-        home_rank:      row.home_rank,
-        away_rank:      row.away_rank,
-        home_form:      row.home_form,
-        away_form:      row.away_form,
-        home_crest:     row.home_crest,
-        away_crest:     row.away_crest,
-        home_rest_days: row.home_rest_days,
-        away_rest_days: row.away_rest_days,
-        h2h_used:       row.h2h_used,
-        sport:          row.sport || "football",
-        surface:        row.surface || null,
-        handicap_line:  row.handicap_line ?? null,
-        is_second_leg:  row.is_second_leg,
-        agg_home:       row.agg_home,
-        agg_away:       row.agg_away,
-        leg1_result:    row.leg1_result,
-        team_news:      row.team_news || null,
-        bookmaker_link: row.bookmaker_link || null,
-        signals: [],
-      });
-    }
-    map.get(key).signals.push({
-      outcome:       row.outcome,
-      outcome_label: row.outcome_label,
-      odds:          row.odds,
-      true_prob:     row.true_prob,
-      ev:            row.ev,
-    });
-  }
-  return Array.from(map.values());
-}
-
-function groupHistoryIntoMatches(rows) {
-  const map = new Map();
-  for (const row of rows) {
-    const key = `${row.kickoff}|${row.home_team}|${row.away_team}`;
-    if (!map.has(key)) {
-      map.set(key, {
         kickoff:           row.kickoff,
         league_key:        row.league_key,
         league_name:       row.league_name,
@@ -281,12 +259,16 @@ function groupHistoryIntoMatches(rows) {
         away_rest_days:    row.away_rest_days,
         h2h_used:          row.h2h_used,
         sport:             row.sport || "football",
+        surface:           row.surface || null,
         handicap_line:     row.handicap_line ?? null,
         is_second_leg:     row.is_second_leg,
         agg_home:          row.agg_home,
         agg_away:          row.agg_away,
-        actual_home_score: row.actual_home_score,
-        actual_away_score: row.actual_away_score,
+        leg1_result:       row.leg1_result,
+        team_news:         row.team_news || null,
+        bookmaker_link:    row.bookmaker_link || null,
+        actual_home_score: row.actual_home_score ?? null,
+        actual_away_score: row.actual_away_score ?? null,
         signals: [],
       });
     }
@@ -296,7 +278,7 @@ function groupHistoryIntoMatches(rows) {
       odds:          row.odds,
       true_prob:     row.true_prob,
       ev:            row.ev,
-      result:        row.result,
+      result:        row.result ?? null,
     });
   }
   return Array.from(map.values());
@@ -359,9 +341,14 @@ export function renderCard(m, opts = {}) {
   const showResult = !!opts.showResult;
   let score = "";
   if (showResult && m.actual_home_score != null) {
-    score = isTennis
-      ? `<span class="text-sm font-bold tabular-nums">${m.actual_home_score}–${m.actual_away_score} sets</span>`
-      : `<span class="text-sm font-bold tabular-nums">${m.actual_home_score}–${m.actual_away_score}</span>`;
+    if (isTennis) {
+      const txt = `${m.actual_home_score}–${m.actual_away_score}`;
+      score = m.score_detail
+        ? `<span class="text-sm font-bold tabular-nums border-b border-dashed border-gray-400 dark:border-gray-500 cursor-default" title="${esc(orientSetScores(m.score_detail, m.actual_home_score, m.actual_away_score))}">${txt}</span>`
+        : `<span class="text-sm font-bold tabular-nums">${txt}</span>`;
+    } else {
+      score = `<span class="text-sm font-bold tabular-nums">${m.actual_home_score}–${m.actual_away_score}</span>`;
+    }
   }
 
   const signalLabel = b => {
@@ -445,10 +432,10 @@ export function renderCard(m, opts = {}) {
       <table class="w-full text-sm table-fixed">
         <thead>
           <tr class="text-xs text-gray-400 uppercase">
-            <th class="w-[34%] pb-1 pr-2 text-left font-medium">Signal<span class="hidden md:inline-flex">${infoIcon("The outcome with the highest model edge")}</span></th>
-            <th class="w-[20%] pb-1 pr-2 text-right font-medium">Odds<span class="hidden md:inline-flex">${infoIcon("Decimal odds offered by the bookmaker")}</span></th>
-            <th class="w-[21%] pb-1 pr-2 text-right font-medium">Prob<span class="hidden md:inline-flex">${infoIcon("Model's estimated probability of this outcome")}</span></th>
-            <th class="w-[25%] pb-1 text-right font-medium">EV<span class="hidden md:inline-flex">${infoIcon("Expected value — gain per €1 staked if the model is right. Green = good value, yellow/red = high edge, verify odds first")}</span></th>
+            <th class="w-[34%] pb-1 pr-2 text-left font-medium">Signal<span class="hidden md:inline-flex">${infoIcon("The outcome with the highest model edge", "left")}</span></th>
+            <th class="w-[20%] pb-1 pr-2 text-right font-medium">Odds<span class="hidden md:inline-flex">${infoIcon("Decimal odds offered by the bookmaker", "right")}</span></th>
+            <th class="w-[21%] pb-1 pr-2 text-right font-medium">Prob<span class="hidden md:inline-flex">${infoIcon("Model's estimated probability of this outcome", "right")}</span></th>
+            <th class="w-[25%] pb-1 text-right font-medium">EV<span class="hidden md:inline-flex">${infoIcon("Expected value — gain per €1 staked if the model is right. Green = good value, yellow/red = high edge, verify odds first", "right")}</span></th>
           </tr>
         </thead>
         <tbody>${signalsRows}</tbody>
@@ -470,10 +457,8 @@ export function renderLeaguePills(matches) {
   for (const m of matches) counts[m.league_key] = (counts[m.league_key] || { name: m.league_name, n: 0 });
   for (const m of matches) counts[m.league_key].n++;
 
-  const allActive   = "bg-indigo-600 text-white";
-  const allInactive = "border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400";
 
-  let html = `<button class="league-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeLeague === "all" ? allActive : allInactive}" data-league="all">
+  let html = `<button class="league-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeLeague === "all" ? PILL_ACTIVE : PILL_INACTIVE}" data-league="all">
     All <span class="ml-1 opacity-70">(${matches.length})</span>
   </button>`;
   for (const [key, { name, n }] of Object.entries(counts)) {
@@ -499,10 +484,8 @@ export function renderDatePills() {
   if (sel && sel.value !== state.activeDateSignals) sel.value = state.activeDateSignals;
 
   // History date pills (live in the burger drawer)
-  const active   = "bg-indigo-600 text-white";
-  const inactive = "border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400";
   document.getElementById("date-hist-pills").innerHTML = DATE_RANGES_HIST.map(t =>
-    `<button class="date-hist-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeDateHist === t.key ? active : inactive}" data-range="${t.key}">${t.label}</button>`
+    `<button class="date-hist-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeDateHist === t.key ? PILL_ACTIVE : PILL_INACTIVE}" data-range="${t.key}">${t.label}</button>`
   ).join("");
   document.querySelectorAll(".date-hist-pill").forEach(btn => {
     btn.addEventListener("click", () => { state.activeDateHist = btn.dataset.range; updateFilterUI(); resetHistoryPagination(); });
@@ -520,10 +503,8 @@ export function renderSignalTypePills() {
     return;
   }
   section.classList.remove("hidden");
-  const active   = "bg-indigo-600 text-white";
-  const inactive = "border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400";
   container.innerHTML = types.map(t =>
-    `<button class="signal-type-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeSignalType === t.key ? active : inactive}" data-type="${t.key}">${t.label}</button>`
+    `<button class="signal-type-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeSignalType === t.key ? PILL_ACTIVE : PILL_INACTIVE}" data-type="${t.key}">${t.label}</button>`
   ).join("");
   document.querySelectorAll(".signal-type-pill").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -547,20 +528,18 @@ export function renderBurgerDrawerPills() {
   const sportEl = document.getElementById("sport-pills-drawer");
   if (sportEl) {
     const pillBase = "flex-none px-3 py-1 rounded-full text-sm font-medium transition-colors";
-    const activeCls   = `${pillBase} bg-indigo-600 text-white`;
-    const inactiveCls = `${pillBase} border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400`;
 
     if (isAnalytics) {
       const opts = [{ key: "all", label: "All Sports" }, ...SPORTS];
       sportEl.innerHTML = opts.map(s => {
-        const cls = state.activeSport === s.key ? activeCls : inactiveCls;
+        const cls = `${pillBase} ${state.activeSport === s.key ? PILL_ACTIVE : PILL_INACTIVE}`;
         return `<button class="analytics-sport-btn ${cls}" data-sport="${s.key}">${s.label}</button>`;
       }).join("");
       // Analytics sport pill clicks handled by event delegation in analytics.js
     } else {
       const sportOpts = [{ key: "all", label: "All Sports" }, ...SPORTS];
       sportEl.innerHTML = sportOpts.map(s => {
-        const cls = state.activeSport === s.key ? activeCls : inactiveCls;
+        const cls = `${pillBase} ${state.activeSport === s.key ? PILL_ACTIVE : PILL_INACTIVE}`;
         return `<button class="sport-pill ${cls}" data-sport="${s.key}">${s.label}</button>`;
       }).join("");
       sportEl.querySelectorAll(".sport-pill").forEach(btn => {
@@ -587,8 +566,6 @@ export function renderBurgerDrawerPills() {
     const dateEl = document.getElementById("analytics-date-pills-drawer");
     if (dateEl) {
       const pillBase = "flex-none px-3 py-1 rounded-full text-sm font-medium transition-colors";
-      const activeCls   = `${pillBase} bg-indigo-600 text-white`;
-      const inactiveCls = `${pillBase} border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400`;
       const ranges = [
         { key: "all", label: "All time" },
         { key: "30d", label: "30d" },
@@ -596,7 +573,7 @@ export function renderBurgerDrawerPills() {
         { key: "6m",  label: "6m" },
       ];
       dateEl.innerHTML = ranges.map(r => {
-        const cls = state.analyticsActiveDateRange === r.key ? activeCls : inactiveCls;
+        const cls = `${pillBase} ${state.analyticsActiveDateRange === r.key ? PILL_ACTIVE : PILL_INACTIVE}`;
         return `<button class="analytics-date-btn ${cls}" data-range="${r.key}">${r.label}</button>`;
       }).join("");
       // Analytics date pill clicks handled by event delegation in analytics.js
@@ -717,7 +694,7 @@ export function setMainTab(tab) {
 
   if (document.getElementById("burger-drawer")) renderBurgerDrawerPills();
   updateFilterUI();
-  if (tab === "history") renderHistory();
+  if (tab === "history") { renderHistory(); resetHistoryPagination(); }
 }
 
 // ── Loading / error ────────────────────────────────────────────
@@ -737,8 +714,22 @@ export function showError(msg) {
 // ── Render signals panel ───────────────────────────────────────
 export function renderSignalsPanel() {
   const allMatches = groupIntoMatches(state.signalsData).filter(m => state.activeSport === "all" || m.sport === state.activeSport);
+
+  // League counts should reflect the active date window, not all-time
+  const tz       = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const todayD   = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+  const tmrwD    = new Date(Date.now() + 864e5).toLocaleDateString("en-CA", { timeZone: tz });
+  const weekEndD = new Date(Date.now() + 7 * 864e5).toLocaleDateString("en-CA", { timeZone: tz });
+  const matchesForCounts = allMatches.filter(m => {
+    const d = new Date(m.kickoff).toLocaleDateString("en-CA", { timeZone: tz });
+    if (state.activeDateSignals === "today")    return d === todayD;
+    if (state.activeDateSignals === "tomorrow") return d === tmrwD;
+    if (state.activeDateSignals === "week")     return d >= todayD && d <= weekEndD;
+    return true;
+  });
+
   renderSportPills();
-  renderLeaguePills(allMatches);
+  renderLeaguePills(matchesForCounts);
   renderSignalTypePills();
   renderDatePills();
 
@@ -761,19 +752,13 @@ export function renderSignalsPanel() {
     );
   }
 
-  if (state.activeDateSignals !== "all") {
-    const tz      = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const todayD  = new Date().toLocaleDateString("en-CA", { timeZone: tz });
-    const tmrwD   = new Date(Date.now() + 864e5).toLocaleDateString("en-CA", { timeZone: tz });
-    const weekEndD = new Date(Date.now() + 7 * 864e5).toLocaleDateString("en-CA", { timeZone: tz });
-    filtered = filtered.filter(m => {
-      const d = new Date(m.kickoff).toLocaleDateString("en-CA", { timeZone: tz });
-      if (state.activeDateSignals === "today")    return d === todayD;
-      if (state.activeDateSignals === "tomorrow") return d === tmrwD;
-      if (state.activeDateSignals === "week")     return d >= todayD && d <= weekEndD;
-      return true;
-    });
-  }
+  filtered = filtered.filter(m => {
+    const d = new Date(m.kickoff).toLocaleDateString("en-CA", { timeZone: tz });
+    if (state.activeDateSignals === "today")    return d === todayD;
+    if (state.activeDateSignals === "tomorrow") return d === tmrwD;
+    if (state.activeDateSignals === "week")     return d >= todayD && d <= weekEndD;
+    return true;
+  });
 
   if (state.activeSignalType !== "all") {
     const isPrefix = state.activeSignalType.endsWith("_");
@@ -791,13 +776,10 @@ export function renderSignalsPanel() {
     return;
   }
 
-  const tz       = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: tz });
-  const tmrwStr  = new Date(Date.now() + 864e5).toLocaleDateString("en-CA", { timeZone: tz });
   function dayLabel(iso) {
     const d = new Date(iso).toLocaleDateString("en-CA", { timeZone: tz });
-    if (d === todayStr) return "Today";
-    if (d === tmrwStr)  return "Tomorrow";
+    if (d === todayD) return "Today";
+    if (d === tmrwD)  return "Tomorrow";
     return fmtDate(iso);
   }
 
@@ -914,7 +896,7 @@ export function renderHistory() {
   if (sorted.length === 0) {
     container.innerHTML = `<p class="text-center text-gray-400 py-12 whitespace-normal">No history yet.</p>`;
   } else {
-    const matches = groupHistoryIntoMatches(sorted);
+    const matches = groupIntoMatches(sorted);
     const byDate  = new Map();
     for (const m of matches) {
       const d = fmtDate(m.kickoff);
@@ -970,15 +952,20 @@ export function renderHistory() {
   }
   const BLANK_IN_REPEAT = new Set(["kickoff", "league_name", "home_team", "_score"]);
   tbody.innerHTML = matchGroups.map((group, gi) => {
-    const stripeCls = gi % 2 === 0 ? "" : "bg-gray-50 dark:bg-gray-800/40";
+    const isHit  = group.rows.some(r => r.result === "hit");
+    const isMiss = !isHit && group.rows.some(r => r.result === "miss");
+    const rowBgCls = isHit  ? "bg-green-500/5"
+                   : isMiss ? "bg-red-500/5 opacity-50 grayscale hover:opacity-100 hover:grayscale-0 transition-all"
+                   : "";
     return group.rows.map((r, ri) => {
       const borderCls = gi > 0 && ri === 0 ? "border-t border-gray-200 dark:border-gray-700" : "";
-      const cells = HIST_COLS.map(c => {
-        const align   = c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "";
-        const content = ri > 0 && BLANK_IN_REPEAT.has(c.key) ? "" : c.render(r);
-        return `<td class="px-4 py-1.5 ${align}">${content}</td>`;
+      const cells = HIST_COLS.map((c, ci) => {
+        const align      = c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "";
+        const content    = ri > 0 && BLANK_IN_REPEAT.has(c.key) ? "" : c.render(r);
+        const accentCls  = ci === 0 ? (isHit ? "border-l-2 border-l-green-500" : "border-l-2 border-l-transparent") : "";
+        return `<td class="px-4 py-1.5 ${align} ${accentCls}">${content}</td>`;
       }).join("");
-      return `<tr class="${stripeCls} ${borderCls} hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">${cells}</tr>`;
+      return `<tr class="${rowBgCls} ${borderCls} hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">${cells}</tr>`;
     }).join("");
   }).join("");
 }
