@@ -18,7 +18,7 @@ const gridColor = () => isDark() ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'
 const tickColor = () => isDark() ? '#9ca3af' : '#6b7280';
 
 // ── Sport table sort state ─────────────────────────────────────
-const sportSort = { col: 'sport', dir: 'asc' };
+const sportSort = { col: 'pnl', dir: 'desc' };
 
 // ── Chart instances ────────────────────────────────────────────
 let pnlChart = null;
