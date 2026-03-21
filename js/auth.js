@@ -352,6 +352,29 @@ export function renderAuthScreen(showcaseSignals = null) {
             <p class="text-gray-600 dark:text-gray-400 text-base leading-relaxed">Statistical models surface mispriced odds across football, basketball and tennis.</p>
           </div>
 
+          <!-- Sign-in form -->
+          <div id="auth-form-wrap" class="mb-10">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5" for="auth-email">
+              Enter your email to sign up or log in
+            </label>
+            <input id="auth-email" type="email" autocomplete="email" inputmode="email"
+              placeholder="you@example.com"
+              class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 mb-3" />
+            <button id="auth-submit-btn" disabled
+              class="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              Continue
+            </button>
+            <p id="auth-error" class="hidden mt-3 text-xs text-red-500 dark:text-red-400 text-center"></p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-2.5 text-center">New users get a ${TRIAL_DAYS}-day free trial · Cancel anytime · Card required.</p>
+          </div>
+
+          <div id="auth-sent-wrap" class="hidden text-center mb-10">
+            <div class="text-4xl mb-4">📬</div>
+            <p class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">Check your inbox</p>
+            <p class="text-xs text-gray-500">We sent a sign-in link to <strong id="auth-sent-email" class="text-gray-700 dark:text-gray-300"></strong>. Click it to log in.</p>
+            <button id="auth-resend-btn" class="mt-5 text-xs text-indigo-600 dark:text-indigo-400 hover:underline">Send a new link</button>
+          </div>
+
           <!-- How it works -->
           <div class="mb-8">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">How it works</p>
@@ -369,45 +392,6 @@ export function renderAuthScreen(showcaseSignals = null) {
                 <p class="text-sm text-gray-600 dark:text-gray-400"><span class="font-semibold text-gray-800 dark:text-gray-200">You get the strongest signals</span> — Only the highest-edge opportunities land in your feed, with a direct link to act before the line moves.</p>
               </div>
             </div>
-          </div>
-
-          <!-- Feature list -->
-          <ul class="mb-8 space-y-2.5">
-            <li class="flex items-start gap-2.5 text-sm text-gray-700 dark:text-gray-300">
-              <span class="text-green-500 dark:text-green-400 mt-0.5 shrink-0">✓</span>Football, basketball &amp; tennis — all in one place
-            </li>
-            <li class="flex items-start gap-2.5 text-sm text-gray-700 dark:text-gray-300">
-              <span class="text-green-500 dark:text-green-400 mt-0.5 shrink-0">✓</span>Dixon-Coles, Elo, and Gaussian models
-            </li>
-            <li class="flex items-start gap-2.5 text-sm text-gray-700 dark:text-gray-300">
-              <span class="text-green-500 dark:text-green-400 mt-0.5 shrink-0">✓</span>Full history with ROI tracking
-            </li>
-            <li class="flex items-start gap-2.5 text-sm text-gray-700 dark:text-gray-300">
-              <span class="text-green-500 dark:text-green-400 mt-0.5 shrink-0">✓</span>Bookmaker links on every signal
-            </li>
-          </ul>
-
-          <!-- Sign-in form -->
-          <div id="auth-form-wrap">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5" for="auth-email">
-              Email address
-            </label>
-            <input id="auth-email" type="email" autocomplete="email" inputmode="email"
-              placeholder="you@example.com"
-              class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 mb-3" />
-            <button id="auth-submit-btn"
-              class="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-              Send magic link
-            </button>
-            <p id="auth-error" class="hidden mt-3 text-xs text-red-500 dark:text-red-400 text-center"></p>
-            <p class="text-xs text-gray-400 dark:text-gray-600 mt-2.5 text-center">${TRIAL_DAYS}-day free trial · cancel anytime · card required</p>
-          </div>
-
-          <div id="auth-sent-wrap" class="hidden text-center">
-            <div class="text-4xl mb-4">📬</div>
-            <p class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">Check your inbox</p>
-            <p class="text-xs text-gray-500">We sent a sign-in link to <strong id="auth-sent-email" class="text-gray-700 dark:text-gray-300"></strong>. Click it to log in.</p>
-            <button id="auth-resend-btn" class="mt-5 text-xs text-indigo-600 dark:text-indigo-400 hover:underline">Send a new link</button>
           </div>
 
           <p class="text-xs text-gray-400 dark:text-gray-600 mt-8 leading-relaxed">
@@ -460,17 +444,20 @@ export function attachAuthListeners() {
       errorEl.textContent = err.message || "Something went wrong. Please try again.";
       errorEl.classList.remove("hidden");
       submitBtn.disabled = false;
-      submitBtn.textContent = "Send magic link";
+      submitBtn.textContent = "Continue";
     }
   }
 
   submitBtn.addEventListener("click", submit);
   emailInput.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+  emailInput.addEventListener("input", () => {
+    submitBtn.disabled = !emailInput.validity.valid || !emailInput.value.trim();
+  });
 
   resendBtn?.addEventListener("click", () => {
     formWrap.classList.remove("hidden");
     sentWrap.classList.add("hidden");
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Send magic link";
+    submitBtn.disabled = !emailInput.validity.valid || !emailInput.value.trim();
+    submitBtn.textContent = "Continue";
   });
 }
