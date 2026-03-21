@@ -39,74 +39,131 @@ function evClass(ev) {
   return "ev-success";
 }
 
+const SHOWCASE_LEAGUE_SHORT = {
+  epl: "EPL", facup: "FA Cup", eflcup: "EFL Cup",
+  ligue1: "Ligue 1", ligue2: "Ligue 2", coupedefrance: "Coupe de France",
+  laliga: "La Liga", copadelrey: "Copa del Rey",
+  bundesliga: "Bundesliga", dfbpokal: "DFB-Pokal",
+  seriea: "Serie A", coppaditalia: "Coppa Italia",
+  ucl: "UCL", uel: "UEL", uecl: "UECL",
+  uefanations: "Nations League", euroqual: "Euro Qual.",
+  worldcup: "World Cup", wcqualeurope: "WC Qual. EU",
+  nba: "NBA",
+};
+const SHOWCASE_LEAGUE_CLS = {
+  epl:          "bg-purple-100  text-purple-800  dark:bg-purple-900/40  dark:text-purple-300",
+  facup:        "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/40 dark:text-fuchsia-300",
+  eflcup:       "bg-pink-100    text-pink-800    dark:bg-pink-900/40    dark:text-pink-300",
+  ligue1:       "bg-green-100   text-green-800   dark:bg-green-900/40   dark:text-green-300",
+  ligue2:       "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+  coupedefrance:"bg-lime-100    text-lime-800    dark:bg-lime-900/40    dark:text-lime-300",
+  laliga:       "bg-orange-100  text-orange-800  dark:bg-orange-900/40  dark:text-orange-300",
+  copadelrey:   "bg-amber-100   text-amber-800   dark:bg-amber-900/40   dark:text-amber-300",
+  bundesliga:   "bg-red-100     text-red-800     dark:bg-red-900/40     dark:text-red-300",
+  dfbpokal:     "bg-rose-100    text-rose-800    dark:bg-rose-900/40    dark:text-rose-300",
+  seriea:       "bg-blue-100    text-blue-800    dark:bg-blue-900/40    dark:text-blue-300",
+  coppaditalia: "bg-sky-100     text-sky-800     dark:bg-sky-900/40     dark:text-sky-300",
+  ucl:          "bg-indigo-100  text-indigo-800  dark:bg-indigo-900/40  dark:text-indigo-300",
+  uel:          "bg-orange-100  text-orange-800  dark:bg-orange-900/40  dark:text-orange-300",
+  uecl:         "bg-teal-100    text-teal-800    dark:bg-teal-900/40    dark:text-teal-300",
+  uefanations:  "bg-slate-100   text-slate-800   dark:bg-slate-800/60   dark:text-slate-300",
+  euroqual:     "bg-cyan-100    text-cyan-800    dark:bg-cyan-900/40    dark:text-cyan-300",
+  worldcup:     "bg-yellow-100  text-yellow-800  dark:bg-yellow-900/40  dark:text-yellow-300",
+  wcqualeurope: "bg-amber-100   text-amber-800   dark:bg-amber-900/40   dark:text-amber-300",
+  nba:          "bg-red-100     text-red-800     dark:bg-red-950/60     dark:text-red-300",
+};
+
 function buildShowcaseCard(signal) {
   if (!signal) return null;
 
-  const sport = signal.sport;
-  const kickoffDate = new Date(signal.kickoff);
-  const dateStr = kickoffDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  const evPct = `+${(signal.ev * 100).toFixed(1)}%`;
-  const probPct = `${(signal.true_prob * 100).toFixed(1)}%`;
-  const oddsStr = Number(signal.odds).toFixed(2);
+  const isTennis     = signal.sport === "tennis";
+  const isBasketball = signal.sport === "basketball";
   const ev = Number(signal.ev);
 
-  // League badge colors
-  const badgeClass = sport === "basketball"
-    ? "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
-    : sport === "tennis"
-      ? "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300"
-      : "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300";
+  // Short display names
+  const homeName = signal.home_short_name || signal.home_canonical || signal.home_team;
+  const awayName = signal.away_short_name || signal.away_canonical || signal.away_team;
 
-  const leagueLabel = signal.stage
-    ? `${signal.league_name} · ${signal.stage}`
-    : signal.league_name;
+  // ── League badge ───────────────────────────────────────────────
+  let leagueBadgeHtml;
+  if (isTennis) {
+    const isATP = (signal.league_key || "").startsWith("tennis_atp_");
+    const circuitCls = isATP
+      ? "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300"
+      : "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300";
+    const cleanName = (signal.league_name || "").replace(/^(ATP|WTA)\s+/i, "").trim();
+    const parts = [cleanName, signal.stage].filter(Boolean);
+    const surCls = signal.surface === "Clay"  ? "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300"
+                 : signal.surface === "Grass" ? "bg-green-100  text-green-800  dark:bg-green-900/40  dark:text-green-300"
+                 :                              "bg-sky-100    text-sky-800    dark:bg-sky-900/40    dark:text-sky-300";
+    leagueBadgeHtml = `
+      <span class="inline-flex items-center leading-none px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${circuitCls}">${isATP ? "ATP" : "WTA"}</span>
+      <span class="inline-flex items-center leading-none px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${surCls}">${parts.join(" \u00b7 ")}</span>`;
+  } else {
+    const shortName = SHOWCASE_LEAGUE_SHORT[signal.league_key] || signal.league_name;
+    let shortStage = (signal.stage || "")
+      .replace("Matchday", "MD")
+      .replace("Round of 16", "R16")
+      .replace("Quarter-finals", "QF")
+      .replace("Semi-finals", "SF");
+    const badgeText = shortStage ? `${shortName} \u2022 ${shortStage}` : shortName;
+    const cls = SHOWCASE_LEAGUE_CLS[signal.league_key] || "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
+    leagueBadgeHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${cls}">${badgeText}</span>`;
+  }
 
-  // Score display
-  const scoreHtml = (signal.actual_home_score != null && signal.actual_away_score != null)
-    ? `<span class="text-xs font-mono text-gray-400 dark:text-gray-500 ml-1">${signal.actual_home_score}–${signal.actual_away_score}</span>`
-    : "";
+  // ── Score in header ────────────────────────────────────────────
+  let scoreHtml = "";
+  if (signal.actual_home_score != null && signal.actual_away_score != null) {
+    if (isTennis && signal.score_detail) {
+      let detail = signal.score_detail;
+      if (signal.actual_away_score > signal.actual_home_score) {
+        detail = detail.split(" ").map(s => { const [a, b] = s.split("-"); return `${b}-${a}`; }).join(" ");
+      }
+      scoreHtml = `<span class="text-xs font-mono text-gray-500 dark:text-gray-400">${detail}</span>`;
+    } else {
+      scoreHtml = `<span class="text-sm font-bold tabular-nums">${signal.actual_home_score}–${signal.actual_away_score}</span>`;
+    }
+  }
 
-  // Tennis: set scores from score_detail
-  const tennisScore = signal.score_detail
-    ? `<span class="text-xs font-mono text-gray-400 dark:text-gray-500 ml-1">${signal.score_detail}</span>`
-    : scoreHtml;
-
+  // ── Team crests & ranks ────────────────────────────────────────
   const homeCrest = signal.home_crest
-    ? `<img src="${signal.home_crest}" alt="" class="w-7 h-7 object-contain flex-shrink-0">`
+    ? `<img src="${signal.home_crest}" alt="" class="w-7 h-7 object-contain flex-shrink-0" onerror="this.style.display='none'">`
     : `<span class="w-7 h-7 flex-shrink-0"></span>`;
   const awayCrest = signal.away_crest
-    ? `<img src="${signal.away_crest}" alt="" class="w-7 h-7 object-contain flex-shrink-0">`
+    ? `<img src="${signal.away_crest}" alt="" class="w-7 h-7 object-contain flex-shrink-0" onerror="this.style.display='none'">`
     : `<span class="w-7 h-7 flex-shrink-0"></span>`;
+  const homeRank = isTennis && signal.home_rank
+    ? `<span class="text-xs font-medium text-gray-400 dark:text-gray-500">#${signal.home_rank}</span>` : "";
+  const awayRank = isTennis && signal.away_rank
+    ? `<span class="text-xs font-medium text-gray-400 dark:text-gray-500">#${signal.away_rank}</span>` : "";
 
-  const homeRank = sport === "tennis" && signal.home_rank
-    ? `<span class="text-xs text-gray-400 dark:text-gray-500 ml-1">#${signal.home_rank}</span>` : "";
-  const awayRank = sport === "tennis" && signal.away_rank
-    ? `<span class="text-xs text-gray-400 dark:text-gray-500 ml-1">#${signal.away_rank}</span>` : "";
+  // ── Signal label ───────────────────────────────────────────────
+  let signalLabel = signal.outcome_label || "";
+  if (isBasketball && signal.handicap_line != null) {
+    const sign = signal.handicap_line > 0 ? "+" : "";
+    signalLabel = `${signalLabel} (${sign}${signal.handicap_line})`;
+  }
 
   return `
-    <div class="relative pointer-events-none select-none">
-      <span class="absolute top-2 right-2 z-10 text-[10px] font-bold uppercase tracking-wider bg-green-600/80 text-white px-1.5 py-0.5 rounded">Hit ✓</span>
+    <div class="pointer-events-none select-none">
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden opacity-90">
-        <div class="flex items-start justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700">
-          <div class="flex flex-wrap items-center gap-2 mr-3">
-            <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${badgeClass}">${leagueLabel}</span>
+        <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700">
+          <div class="flex flex-wrap items-center gap-1.5 mr-3 min-w-0 overflow-hidden">
+            ${leagueBadgeHtml}
           </div>
-          <span class="text-sm font-semibold tabular-nums text-gray-500 dark:text-gray-400">${dateStr}</span>
+          <div class="flex items-center gap-2 shrink-0">
+            ${scoreHtml}
+            <span class="text-[10px] font-bold uppercase tracking-wider bg-green-600/80 text-white px-1.5 py-0.5 rounded whitespace-nowrap">Hit ✓</span>
+          </div>
         </div>
         <div class="px-4 py-3 space-y-2">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-1.5 min-w-0">
-              ${homeCrest}
-              <span class="font-semibold truncate">${signal.home_canonical || signal.home_team}</span>${homeRank}
-            </div>
-            ${sport !== "tennis" ? tennisScore : ""}
+          <div class="flex items-center gap-1.5 min-w-0">
+            ${homeCrest}
+            <span class="font-semibold truncate">${homeName}</span>${homeRank}
           </div>
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-1.5 min-w-0">
-              ${awayCrest}
-              <span class="font-semibold truncate">${signal.away_canonical || signal.away_team}</span>${awayRank}
-            </div>
-            ${sport === "tennis" ? tennisScore : ""}
+          <div class="flex items-center gap-1.5 min-w-0">
+            ${awayCrest}
+            <span class="font-semibold truncate">${awayName}</span>${awayRank}
           </div>
         </div>
         <div class="px-4 pb-3 border-t border-gray-100 dark:border-gray-800 pt-3">
@@ -121,10 +178,10 @@ function buildShowcaseCard(signal) {
             </thead>
             <tbody>
               <tr class="border-t border-gray-100 dark:border-gray-700/50">
-                <td class="py-1.5 pr-2"><span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">${signal.outcome_label}</span></td>
-                <td class="py-1.5 pr-2 text-right font-mono text-sm">${oddsStr}</td>
-                <td class="py-1.5 pr-2 text-right text-sm text-gray-500 dark:text-gray-400">${probPct}</td>
-                <td class="py-1.5 text-right text-sm font-semibold"><span class="${evClass(ev)}">${evPct}</span></td>
+                <td class="py-1.5 pr-2"><span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">${signalLabel}</span></td>
+                <td class="py-1.5 pr-2 text-right font-mono text-sm">${Number(signal.odds).toFixed(2)}</td>
+                <td class="py-1.5 pr-2 text-right text-sm text-gray-500 dark:text-gray-400">${(signal.true_prob * 100).toFixed(1)}%</td>
+                <td class="py-1.5 text-right text-sm font-semibold"><span class="${evClass(ev)}">+${(ev * 100).toFixed(1)}%</span></td>
               </tr>
             </tbody>
           </table>
