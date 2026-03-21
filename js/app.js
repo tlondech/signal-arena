@@ -186,7 +186,8 @@ async function init() {
     sub = await pollSubscription(session.user.id, 8, 1500);
   }
 
-  const isActive  = sub && ["active", "trialing"].includes(sub.status);
+  const periodEnded = sub?.current_period_end && new Date(sub.current_period_end) < new Date();
+  const isActive  = sub && ["active", "trialing"].includes(sub.status) && !periodEnded;
   const isNewUser = !sub;
   const isExpired = sub && sub.trial_used === true && !isActive;
 
