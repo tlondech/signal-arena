@@ -239,19 +239,70 @@ async function init() {
   if (state.teaserMode) {
     document.getElementById("teaser-banner")?.classList.remove("hidden");
     document.getElementById("teaser-subscribe-btn")?.addEventListener("click", startCheckout);
-    document.querySelectorAll("[data-main='history'], [data-main='analytics']").forEach(el => el.classList.add("hidden"));
 
-    // Lock filters & search — intercept before the real handlers run
-    const lockAndCheckout = e => { e.stopImmediatePropagation(); e.preventDefault(); startCheckout(); };
-    document.getElementById("burger-btn")?.addEventListener("click", lockAndCheckout, true);
-    document.getElementById("filters-toggle")?.addEventListener("click", lockAndCheckout, true);
+    const LOCK_SVG = `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:.65rem;height:.65rem"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>`;
+
+    const shake = el => {
+      el.classList.remove("lock-shake");
+      void el.offsetWidth;
+      el.classList.add("lock-shake");
+      el.addEventListener("animationend", () => el.classList.remove("lock-shake"), { once: true });
+    };
+    const shakeAndCheckout = e => {
+      e.stopImmediatePropagation(); e.preventDefault();
+      shake(e.currentTarget);
+      startCheckout();
+    };
+
+    // Lock (not hide) history & analytics — desktop tabs + mobile bottom nav
+    document.querySelectorAll("[data-main='history'], [data-main='analytics']").forEach(el => {
+      el.classList.add("opacity-40", "cursor-not-allowed");
+      el.addEventListener("click", shakeAndCheckout, true);
+    });
+
+    // Burger button
+    document.getElementById("burger-btn")?.addEventListener("click", shakeAndCheckout, true);
+
+    // Filters button — mute visual, replace badge with padlock
+    const filtersBtn = document.getElementById("filters-toggle");
+    if (filtersBtn) {
+      filtersBtn.classList.add("text-gray-400", "border-gray-200", "dark:border-gray-700", "cursor-not-allowed");
+      filtersBtn.classList.remove("text-gray-700", "dark:text-gray-200", "hover:bg-gray-50", "dark:hover:bg-gray-800");
+      filtersBtn.title = "Premium Feature";
+      const badge = document.getElementById("filter-badge");
+      if (badge) {
+        badge.innerHTML = LOCK_SVG;
+        badge.classList.remove("hidden", "bg-blue-600", "text-white", "font-bold");
+        badge.classList.add("flex", "items-center", "justify-center", "text-gray-400", "bg-gray-100", "dark:bg-gray-800");
+      }
+      filtersBtn.addEventListener("click", shakeAndCheckout, true);
+    }
+
+    // Search inputs — mute visual, add padlock icon inside wrapper
+    const LOCK_SPAN = `<span class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">${LOCK_SVG}</span>`;
     ["team-search", "team-search-mobile"].forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
       el.disabled = true;
       el.placeholder = "Subscribe to search…";
-      el.addEventListener("click", lockAndCheckout, true);
+      el.classList.add("bg-gray-50", "dark:bg-gray-800", "text-gray-500", "dark:text-gray-400", "cursor-not-allowed", "pr-8");
+      el.classList.remove("bg-white", "dark:bg-gray-900");
+      const wrap = document.getElementById(`${id}-wrap`);
+      if (wrap) {
+        wrap.insertAdjacentHTML("beforeend", LOCK_SPAN);
+        wrap.style.cursor = "pointer";
+        wrap.addEventListener("click", () => { shake(wrap); startCheckout(); });
+      }
     });
+
+    // League pills — intercept locked pills via event delegation
+    document.getElementById("league-pills")?.addEventListener("click", e => {
+      const btn = e.target.closest("[data-locked-pill]");
+      if (!btn) return;
+      e.stopImmediatePropagation(); e.preventDefault();
+      shake(btn);
+      startCheckout();
+    }, true);
   }
 
   // ── Path C (trialing): show trial countdown banner ─────────────

@@ -93,6 +93,15 @@
     @media (hover:hover) {
       .pill-fade-wrap:hover .pill-arrow.pf-arrow-visible { display:flex; }
     }
+
+    @keyframes lock-shake {
+      0%,100% { transform: translateX(0) rotate(0); }
+      20%     { transform: translateX(-4px) rotate(-3deg); }
+      40%     { transform: translateX(4px) rotate(3deg); }
+      60%     { transform: translateX(-3px) rotate(-2deg); }
+      80%     { transform: translateX(3px) rotate(2deg); }
+    }
+    .lock-shake { animation: lock-shake 0.35s ease; }
   </style>
 <div id="global-tooltip"></div>
 </head>
@@ -172,8 +181,10 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
       </button>
-      <input id="team-search-mobile" type="text" placeholder="Search team / player…"
-        class="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      <div id="team-search-mobile-wrap" class="relative flex items-center flex-1 min-w-0">
+        <input id="team-search-mobile" type="text" placeholder="Search team / player…"
+          class="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      </div>
       <div class="relative flex-shrink-0">
         <button class="account-btn w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-200 dark:hover:bg-indigo-900/70 transition-colors flex items-center justify-center" title="Account" aria-label="Account menu">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -236,8 +247,10 @@
           <span>Filters</span>
           <span id="filter-badge" class="hidden absolute -top-1.5 -right-1.5 flex items-center justify-center bg-blue-600 text-white text-[10px] font-bold h-4 w-4 rounded-full leading-none"></span>
         </button>
-        <input id="team-search" type="text" placeholder="Search team / player…"
-          class="min-w-0 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 w-56" />
+        <div id="team-search-wrap" class="relative flex items-center">
+          <input id="team-search" type="text" placeholder="Search team / player…"
+            class="min-w-0 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 w-56" />
+        </div>
       </div>
     </div>
     <div id="active-filter-chips" class="flex flex-wrap items-center gap-2 empty:hidden"></div>

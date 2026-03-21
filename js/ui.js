@@ -475,16 +475,21 @@ export function renderLeaguePills(matches) {
 
   const pillCls = (key) => `league-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${leaguePillCls(key, state.activeLeague === key)}`;
   const allCls  = `league-pill flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${state.activeLeague === "all" ? PILL_ACTIVE : PILL_INACTIVE}`;
+  const LOCK_ICON = `<svg class="inline w-2.5 h-2.5 ml-1 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>`;
 
   let html = `<div class="pill-fade-wrap"><div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
     <button class="${allCls}" data-league="all">All</button>`;
   for (const [key, { name }] of Object.entries(leagues)) {
-    html += `<button class="${pillCls(key)}" data-league="${esc(key)}">${esc(LEAGUE_SHORT_NAMES[key] || name)}</button>`;
+    if (state.teaserMode && state.activeLeague !== key) {
+      html += `<button class="flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800" data-league="${esc(key)}" data-locked-pill="1">${esc(LEAGUE_SHORT_NAMES[key] || name)}${LOCK_ICON}</button>`;
+    } else {
+      html += `<button class="${pillCls(key)}" data-league="${esc(key)}">${esc(LEAGUE_SHORT_NAMES[key] || name)}</button>`;
+    }
   }
   html += `</div></div>`;
 
   document.getElementById("league-pills").innerHTML = html;
-  document.querySelectorAll(".league-pill").forEach(btn => {
+  document.querySelectorAll(".league-pill:not([data-locked-pill])").forEach(btn => {
     btn.addEventListener("click", () => {
       state.activeLeague = btn.dataset.league;
       updateFilterUI();
