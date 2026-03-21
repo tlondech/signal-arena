@@ -312,10 +312,11 @@ async function init() {
       startCheckout();
     }, true);
 
-    // Hide filter chips bar and last-updated on mobile
+    // Hide filter chips bar and last-updated (mobile + desktop)
     document.getElementById("active-filter-chips")?.classList.add("hidden");
     document.getElementById("active-filter-chips-mobile")?.classList.add("hidden");
     document.getElementById("last-updated-mobile-wrap")?.classList.add("hidden");
+    document.getElementById("refresh-btn")?.classList.add("!hidden");
   }
 
   // ── Path C (trialing): show trial countdown banner ─────────────

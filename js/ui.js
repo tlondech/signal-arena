@@ -698,8 +698,10 @@ export function updateFilterUI() {
   const count = active.length;
 
   const badge = document.getElementById("filter-badge");
-  if (count > 0) { badge.textContent = count; badge.classList.remove("hidden"); }
-  else           { badge.classList.add("hidden"); }
+  if (!state.teaserMode) {
+    if (count > 0) { badge.textContent = count; badge.classList.remove("hidden"); }
+    else           { badge.classList.add("hidden"); }
+  }
 
   const resetBtn = document.getElementById("burger-reset-btn");
   if (resetBtn) resetBtn.disabled = count === 0;
