@@ -240,6 +240,18 @@ async function init() {
     document.getElementById("teaser-banner")?.classList.remove("hidden");
     document.getElementById("teaser-subscribe-btn")?.addEventListener("click", startCheckout);
     document.querySelectorAll("[data-main='history'], [data-main='analytics']").forEach(el => el.classList.add("hidden"));
+
+    // Lock filters & search — intercept before the real handlers run
+    const lockAndCheckout = e => { e.stopImmediatePropagation(); e.preventDefault(); startCheckout(); };
+    document.getElementById("burger-btn")?.addEventListener("click", lockAndCheckout, true);
+    document.getElementById("filters-toggle")?.addEventListener("click", lockAndCheckout, true);
+    ["team-search", "team-search-mobile"].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = true;
+      el.placeholder = "Subscribe to search…";
+      el.addEventListener("click", lockAndCheckout, true);
+    });
   }
 
   // ── Path C (trialing): show trial countdown banner ─────────────
