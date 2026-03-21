@@ -10,6 +10,7 @@ import logging
 from collections.abc import Iterable
 from datetime import date, datetime, timedelta, timezone
 
+from constants import ESPN_LOOKAHEAD_DAYS
 from extractors.base import MatchData
 from extractors.espn_client import ESPNClient
 
@@ -63,7 +64,7 @@ class ESPNSoccerClient(ESPNClient):
         today = datetime.now(timezone.utc).date()
         return [_fixture_to_match_data(f) for f in self.fetch_fixtures(today - timedelta(days=days_back), today)]
 
-    def fetch_upcoming_matches(self, days_ahead: int = 7, leagues: list[str] | None = None) -> list[MatchData]:
+    def fetch_upcoming_matches(self, days_ahead: int = ESPN_LOOKAHEAD_DAYS, leagues: list[str] | None = None) -> list[MatchData]:
         """Returns scheduled (not yet completed) fixtures from ESPN.
 
         Pass ``leagues`` to restrict to a subset of LEAGUE_MAP keys (e.g. ``["ucl"]``).

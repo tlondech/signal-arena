@@ -7,6 +7,7 @@ Fetches completed ATP and WTA matches and normalizes them to MatchData
 import logging
 from datetime import datetime, timedelta, timezone
 
+from constants import ESPN_LOOKAHEAD_DAYS
 from extractors.base import MatchData
 from extractors.espn_client import ESPNClient
 
@@ -169,7 +170,7 @@ class ESPNTennisClient(ESPNClient):
         )
         return unique
 
-    def fetch_upcoming_matches(self, days_ahead: int = 7) -> list[MatchData]:
+    def fetch_upcoming_matches(self, days_ahead: int = ESPN_LOOKAHEAD_DAYS) -> list[MatchData]:
         """Returns scheduled (not yet completed) tennis matches from ESPN."""
         today = datetime.now(timezone.utc).date()
         end = today + timedelta(days=days_ahead)

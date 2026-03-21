@@ -159,7 +159,7 @@ const DATE_RANGES_HIST = [
 const HIST_COLS = [
   { key: "kickoff",       label: "Date",   sortable: true, render: r => { const d = new Date(r.kickoff); const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; const date = d.toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: tz }); const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: tz }); const emoji = SPORT_EMOJI[r.sport] || "🏆"; return `<div class="flex items-center gap-1.5 whitespace-nowrap"><span class="text-sm leading-none">${emoji}</span><span class="text-sm">${esc(date)}</span><span class="text-gray-400 dark:text-gray-500 text-xs">· ${esc(time)}</span></div>`; } },
   { key: "league_name",   label: "League", render: r => `<span class="whitespace-nowrap">${leagueBadge(r.league_key, LEAGUE_SHORT_NAMES[r.league_key] || r.league_name)}</span>` },
-  { key: "home_team",     label: "Match",  render: r => `<span class="whitespace-nowrap">${esc(r.home_team)} <span class="text-gray-400 mx-0.5">v</span> ${esc(r.away_team)}</span>` },
+  { key: "home_team",     label: "Match",  render: r => `<span class="whitespace-nowrap">${esc(r.home_short_name || r.home_team)} <span class="text-gray-400 mx-0.5">v</span> ${esc(r.away_short_name || r.away_team)}</span>` },
   { key: "outcome_label", label: "Signal",   labelHtml: `Signal${infoIcon("Highest-EV outcome identified by the model")}`, render: r => {
     const icon = r.result === "hit"  ? `<span class="text-green-500 ml-1.5 text-xs">✓</span>`
                : r.result === "miss" ? `<span class="text-red-400 ml-1.5 text-xs">✗</span>`

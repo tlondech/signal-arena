@@ -13,6 +13,7 @@ from typing import Protocol
 
 from config import LeagueConfig, _current_season
 from extractors.espn_basketball_client import ESPNBasketballClient
+from extractors.espn_soccer_client import ESPNSoccerClient
 from extractors.espn_tennis_client import ESPNTennisClient
 from pipeline.evaluate import build_features
 from pipeline.fetch import fetch_league_data
@@ -34,7 +35,7 @@ class FetchResult:
     crest_map:       dict       = field(default_factory=dict)
     round_map:       dict | None = None   # tennis only
     seed_map:        dict | None = None   # tennis only; {frozenset({p1, p2}): {player_name_lower: int}}
-    short_name_map:  dict | None = None   # tennis only; {full_name: short_name}
+    short_name_map:  dict | None = None   # {full_name: short_name} (all sports)
     features:        dict       = field(default_factory=dict)  # football only
     odds_client:     object | None = None
 
@@ -61,6 +62,8 @@ class LeagueFetcher(Protocol):
 
 class FootballFetcher:
     """Fetches ESPN fixture history, builds features and leg-2 context."""
+
+    _short_name_map_cache: dict | None = None
 
     def fetch(
         self,
@@ -94,12 +97,16 @@ class FootballFetcher:
         features = build_features(raw_fixtures, name_map, league, cfg)
         features["leg2_map"] = leg2_map
 
+        if FootballFetcher._short_name_map_cache is None:
+            FootballFetcher._short_name_map_cache = _build_football_short_name_map()
+
         return FetchResult(
             upcoming_events=upcoming_events,
             raw_fixtures=raw_fixtures,
             stage_map=stage_map,
             crest_map=crest_map,
             features=features,
+            short_name_map=FootballFetcher._short_name_map_cache,
             odds_client=odds_client,
         )
 
@@ -141,6 +148,9 @@ class TennisFetcher:
 class NBAFetcher:
     """Fetches live NBA odds; builds stage map once per run."""
 
+    _stage_map_cache:      dict | None = None
+    _short_name_map_cache: dict | None = None
+
     def fetch(
         self,
         league: LeagueConfig,
@@ -155,7 +165,9 @@ class NBAFetcher:
         if dry_run:
             return FetchResult(upcoming_events=upcoming_events, odds_client=odds_client)
 
-        stage_map, short_name_map = _build_nba_maps()
+        if NBAFetcher._stage_map_cache is None:
+            NBAFetcher._stage_map_cache, NBAFetcher._short_name_map_cache = _build_nba_maps()
+        stage_map, short_name_map = NBAFetcher._stage_map_cache, NBAFetcher._short_name_map_cache
         return FetchResult(
             upcoming_events=upcoming_events,
             stage_map=stage_map,
@@ -165,8 +177,23 @@ class NBAFetcher:
 
 
 # ---------------------------------------------------------------------------
-# Stage/round map builders
+# Short name map builders (one per sport, keyed by ESPN displayName)
 # ---------------------------------------------------------------------------
+
+def _build_football_short_name_map() -> dict[str, str]:
+    """Fetches ESPN upcoming football matches; returns {espn_displayName: shortDisplayName}."""
+    try:
+        matches = ESPNSoccerClient().fetch_upcoming_matches()
+        short_name_map: dict[str, str] = {}
+        for m in matches:
+            if m.metadata.get("home_short_name"):
+                short_name_map[m.home_team] = m.metadata["home_short_name"]
+            if m.metadata.get("away_short_name"):
+                short_name_map[m.away_team] = m.metadata["away_short_name"]
+        return short_name_map
+    except Exception as e:
+        logger.debug("Football short name map fetch failed (non-fatal): %s", e)
+        return {}
 
 def _build_tennis_maps() -> tuple[dict, dict, dict]:
     """Fetches ESPN upcoming tennis matches; returns (round_map, seed_map, short_name_map).
@@ -176,7 +203,7 @@ def _build_tennis_maps() -> tuple[dict, dict, dict]:
     short_name_map:  {full_name: short_name}  (e.g. "Carlos Alcaraz" → "C. Alcaraz")
     """
     try:
-        matches = ESPNTennisClient().fetch_upcoming_matches(days_ahead=14)
+        matches = ESPNTennisClient().fetch_upcoming_matches()
         round_map = {
             frozenset({m.home_team.lower(), m.away_team.lower()}): m.metadata["round"]
             for m in matches
@@ -212,7 +239,7 @@ def _build_nba_maps() -> tuple[dict, dict]:
     short_name_map: {full_name: short_name}  (e.g. "Charlotte Hornets" → "Hornets")
     """
     try:
-        matches = ESPNBasketballClient().fetch_upcoming_matches(days_ahead=21)
+        matches = ESPNBasketballClient().fetch_upcoming_matches()
         stage_map = {
             frozenset({m.home_team.lower(), m.away_team.lower()}): m.metadata["stage"]
             for m in matches

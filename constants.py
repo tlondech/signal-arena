@@ -123,6 +123,9 @@ FOOTBALLDATA_ORG_TIMEOUT = 30        # seconds
 # ESPN public API (no key required)
 ESPN_API_BASE_URL = "https://site.api.espn.com/apis/site/v2/sports"
 
+# Lookahead window used when fetching ESPN upcoming matches for round/seed/short-name maps
+ESPN_LOOKAHEAD_DAYS = 14
+
 
 # ---------------------------------------------------------------------------
 # Database & persistence

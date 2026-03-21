@@ -136,6 +136,7 @@ def evaluate_matches(
     stage_map: dict[str, str],
     crest_map: dict[str, str],
     features: dict,
+    short_name_map: dict[str, str] | None = None,
 ) -> tuple[dict[tuple, dict], int]:
     """
     Runs the EV evaluation loop over all non-live upcoming events.
@@ -269,10 +270,12 @@ def evaluate_matches(
                 "leg1_result":    leg2_context["leg1_result"] if leg2_context else None,
                 "agg_home":       leg2_context["agg_home"]    if leg2_context else None,
                 "agg_away":       leg2_context["agg_away"]    if leg2_context else None,
-                "home_canonical":  home_canonical,
-                "away_canonical":  away_canonical,
-                "bookmaker_link":  event.get("bookmaker_link"),
-                "signals":        [],
+                "home_canonical":   home_canonical,
+                "away_canonical":   away_canonical,
+                "home_short_name":  short_name_map.get(home_canonical) if short_name_map else None,
+                "away_short_name":  short_name_map.get(away_canonical) if short_name_map else None,
+                "bookmaker_link":   event.get("bookmaker_link"),
+                "signals":         [],
             }
 
         _market_groups = [
