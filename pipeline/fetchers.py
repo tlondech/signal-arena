@@ -33,7 +33,7 @@ class FetchResult:
     stage_map:       dict       = field(default_factory=dict)
     crest_map:       dict       = field(default_factory=dict)
     round_map:       dict | None = None   # tennis only
-    seed_map:        dict | None = None   # tennis only; {frozenset({p1, p2}): {"home": int|None, "away": int|None}}
+    seed_map:        dict | None = None   # tennis only; {frozenset({p1, p2}): {player_name_lower: int}}
     short_name_map:  dict | None = None   # tennis only; {full_name: short_name}
     features:        dict       = field(default_factory=dict)  # football only
     odds_client:     object | None = None
@@ -172,7 +172,7 @@ def _build_tennis_maps() -> tuple[dict, dict, dict]:
     """Fetches ESPN upcoming tennis matches; returns (round_map, seed_map, short_name_map).
 
     round_map:       {frozenset({p1, p2}): compact_round}
-    seed_map:        {frozenset({p1, p2}): {"home": int|None, "away": int|None}}
+    seed_map:        {frozenset({p1, p2}): {player_name_lower: int}}
     short_name_map:  {full_name: short_name}  (e.g. "Carlos Alcaraz" → "C. Alcaraz")
     """
     try:
@@ -182,14 +182,17 @@ def _build_tennis_maps() -> tuple[dict, dict, dict]:
             for m in matches
             if m.metadata.get("round")
         }
-        seed_map = {
-            frozenset({m.home_team.lower(), m.away_team.lower()}): {
-                "home": m.metadata.get("home_seed"),
-                "away": m.metadata.get("away_seed"),
-            }
-            for m in matches
-            if m.metadata.get("home_seed") is not None or m.metadata.get("away_seed") is not None
-        }
+        seed_map: dict = {}
+        for m in matches:
+            home_seed = m.metadata.get("home_seed")
+            away_seed = m.metadata.get("away_seed")
+            if home_seed is not None or away_seed is not None:
+                entry: dict = {}
+                if home_seed is not None:
+                    entry[m.home_team.lower()] = home_seed
+                if away_seed is not None:
+                    entry[m.away_team.lower()] = away_seed
+                seed_map[frozenset({m.home_team.lower(), m.away_team.lower()})] = entry
         short_name_map: dict[str, str] = {}
         for m in matches:
             if m.metadata.get("home_short_name"):
