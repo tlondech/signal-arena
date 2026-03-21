@@ -5027,3 +5027,15 @@ UTAH,Utah Jazz,2026-03-20,True,128,96,Milwaukee Bucks,2025-26
 MIL,Milwaukee Bucks,2026-03-20,False,96,128,Utah Jazz,2025-26
 SAC,Sacramento Kings,2026-03-20,True,118,139,Philadelphia 76ers,2025-26
 PHI,Philadelphia 76ers,2026-03-20,False,139,118,Sacramento Kings,2025-26
+BKN,Brooklyn Nets,2026-03-20,True,92,93,New York Knicks,2025-26
+NY,New York Knicks,2026-03-20,False,93,92,Brooklyn Nets,2025-26
+DET,Detroit Pistons,2026-03-20,True,115,101,Golden State Warriors,2025-26
+GS,Golden State Warriors,2026-03-20,False,101,115,Detroit Pistons,2025-26
+HOU,Houston Rockets,2026-03-21,True,117,95,Atlanta Hawks,2025-26
+ATL,Atlanta Hawks,2026-03-21,False,95,117,Houston Rockets,2025-26
+MEM,Memphis Grizzlies,2026-03-21,True,112,117,Boston Celtics,2025-26
+BOS,Boston Celtics,2026-03-21,False,117,112,Memphis Grizzlies,2025-26
+MIN,Minnesota Timberwolves,2026-03-21,True,104,108,Portland Trail Blazers,2025-26
+POR,Portland Trail Blazers,2026-03-21,False,108,104,Minnesota Timberwolves,2025-26
+DEN,Denver Nuggets,2026-03-21,True,121,115,Toronto Raptors,2025-26
+TOR,Toronto Raptors,2026-03-21,False,115,121,Denver Nuggets,2025-26
