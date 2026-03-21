@@ -8,6 +8,7 @@ import json
 import logging
 from datetime import date
 from pathlib import Path
+from typing import Optional
 
 from config import LeagueConfig
 from extractors.espn_soccer_client import ESPNSoccerClient
@@ -22,7 +23,7 @@ def fetch_league_data(
     name_map: dict,
     season: int,
     dry_run: bool = False,
-) -> tuple[list[dict], list[dict], dict[str, str], dict[str, str], OddsAPIClient | None]:
+) -> tuple[list[dict], list[dict], dict[str, str], dict[str, str], Optional[OddsAPIClient]]:
     """
     Fetches data for one league from The Odds API and ESPN.
 
