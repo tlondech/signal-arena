@@ -129,12 +129,8 @@ function buildShowcaseCard(signal) {
   const awayRank = isTennis && signal.away_rank
     ? `<span class="text-xs font-medium text-gray-400 dark:text-gray-500">#${signal.away_rank}</span>` : "";
 
-  // ── Sport emoji & date ─────────────────────────────────────────
+  // ── Sport emoji ────────────────────────────────────────────────
   const sportEmoji = isTennis ? "🎾" : isBasketball ? "🏀" : "⚽";
-  const kickoffDate = signal.kickoff ? new Date(signal.kickoff) : null;
-  const dateLabel = kickoffDate
-    ? kickoffDate.toLocaleDateString(undefined, { day: "numeric", month: "short" })
-    : "";
 
   // ── Signal label ───────────────────────────────────────────────
   let signalLabel = signal.outcome_label || "";
@@ -152,7 +148,6 @@ function buildShowcaseCard(signal) {
             ${leagueBadgeHtml}
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            ${dateLabel ? `<span class="text-xs text-gray-500 dark:text-gray-400 tabular-nums">${dateLabel}</span>` : ""}
             ${scoreHtml}
             <span class="text-[10px] font-bold uppercase tracking-wider bg-green-600/80 text-white px-1.5 py-0.5 rounded whitespace-nowrap">Hit ✓</span>
           </div>
@@ -405,15 +400,41 @@ export function renderAuthScreen(showcaseSignals = null) {
         <!-- RIGHT PANEL -->
         <div class="flex flex-col gap-4 w-full md:w-96 shrink-0 md:mt-4">
           ${(() => {
-            const football   = showcaseSignals?.football   ? buildShowcaseCard(showcaseSignals.football)   : null;
-            const basketball = showcaseSignals?.basketball ? buildShowcaseCard(showcaseSignals.basketball) : null;
-            const tennis     = showcaseSignals?.tennis     ? buildShowcaseCard(showcaseSignals.tennis)     : null;
-            const hasReal    = football || basketball || tennis;
-            const label      = hasReal ? "Recent hits" : "Example signals";
-            return `<p class="text-xs font-semibold text-gray-500 dark:text-gray-600 uppercase tracking-wider mb-1">${label}</p>
-          ${football   ?? sampleCard1}
-          ${basketball ?? sampleCard3}
-          ${tennis     ?? sampleCard2}`;
+            const realSignals = [
+              showcaseSignals?.football,
+              showcaseSignals?.basketball,
+              showcaseSignals?.tennis,
+            ].filter(Boolean);
+
+            if (realSignals.length === 0) {
+              return `<p class="text-xs font-semibold text-gray-500 dark:text-gray-600 uppercase tracking-wider mb-1">Example signals</p>
+                ${sampleCard1}${sampleCard3}${sampleCard2}`;
+            }
+
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const todayD     = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+            const yesterdayD = new Date(Date.now() - 864e5).toLocaleDateString("en-CA", { timeZone: tz });
+            function dayLabel(iso) {
+              const d = new Date(iso).toLocaleDateString("en-CA", { timeZone: tz });
+              if (d === todayD)     return "Today";
+              if (d === yesterdayD) return "Yesterday";
+              return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+            }
+
+            realSignals.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+            const byDate = new Map();
+            for (const s of realSignals) {
+              const label = dayLabel(s.kickoff);
+              if (!byDate.has(label)) byDate.set(label, []);
+              byDate.get(label).push(s);
+            }
+
+            let html = `<p class="text-xs font-semibold text-gray-500 dark:text-gray-600 uppercase tracking-wider mb-1">Recent hits</p>`;
+            for (const [label, signals] of byDate) {
+              html += `<h2 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-2 mb-1">${label}</h2>`;
+              html += signals.map(buildShowcaseCard).join("");
+            }
+            return html;
           })()}
         </div>
 
