@@ -213,10 +213,13 @@ async function init() {
     return;
   }
 
-  if (fromCheckout) {
-    history.replaceState(null, "", window.location.pathname);
+  if (isActive) {
     sessionStorage.removeItem("teaser_mode");
     state.teaserMode = false;
+  }
+
+  if (fromCheckout) {
+    history.replaceState(null, "", window.location.pathname);
   }
 
   // ── 3. Mount account menu on the account icon(s) ──────────────
