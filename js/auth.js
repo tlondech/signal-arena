@@ -91,9 +91,8 @@ function buildShowcaseCard(signal) {
     const circuitCls = isATP
       ? "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300"
       : "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300";
-    const cleanName = (signal.league_name || "").replace(/^(ATP|WTA)\s+/i, "").trim();
     leagueBadgeHtml = `
-      <span class="inline-flex items-center leading-none px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${circuitCls}">${cleanName}</span>`;
+      <span class="inline-flex items-center leading-none px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${circuitCls}">${signal.league_name}</span>`;
   } else {
     const shortName = SHOWCASE_LEAGUE_SHORT[signal.league_key] || signal.league_name;
     const cls = SHOWCASE_LEAGUE_CLS[signal.league_key] || "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
