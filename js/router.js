@@ -32,6 +32,13 @@ export function initRouter() {
     activateTab(tab);
   });
 
+  // Restore path from GitHub Pages 404 redirect (/?r=%2Fhistory → /history)
+  const params = new URLSearchParams(window.location.search);
+  const redirectPath = params.get("r");
+  if (redirectPath) {
+    history.replaceState(null, "", redirectPath);
+  }
+
   const initialTab = PATH_TO_TAB[window.location.pathname] ?? "signals";
   if (!PATH_TO_TAB[window.location.pathname]) {
     history.replaceState({ tab: "signals" }, "", "/");
