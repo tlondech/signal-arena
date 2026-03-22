@@ -1,6 +1,7 @@
 import { state } from "./state.js";
 import { fetchSignals, fetchHistoryPage, fetchPendingSignals, fetchShowcaseSignals } from "./api.js";
-import { refreshAnalytics, setupAnalytics } from "./analytics.js";
+import { setupAnalytics } from "./analytics.js";
+import { navigate, initRouter } from "./router.js";
 import {
   relativeDate,
   setMainTab,
@@ -175,6 +176,10 @@ async function init() {
   // ── 1. Auth guard ─────────────────────────────────────────────
   const session = await getSession();
   if (!session) {
+    const intendedPath = window.location.pathname;
+    if (intendedPath !== "/" && intendedPath !== "") {
+      sessionStorage.setItem("auth_redirect", intendedPath);
+    }
     const showcaseSignals = await fetchShowcaseSignals();
     document.body.innerHTML = renderAuthScreen(showcaseSignals);
     attachAuthListeners();
@@ -222,6 +227,12 @@ async function init() {
     history.replaceState(null, "", window.location.pathname);
   }
 
+  const authRedirect = sessionStorage.getItem("auth_redirect");
+  if (authRedirect && !fromCheckout) {
+    sessionStorage.removeItem("auth_redirect");
+    history.replaceState(null, "", authRedirect);
+  }
+
   // ── 3. Mount account menu on the account icon(s) ──────────────
   // Two buttons exist (mobile + desktop) but only one is visible at a time.
   document.querySelectorAll(".account-btn").forEach(btn => {
@@ -237,7 +248,8 @@ async function init() {
     document.getElementById("account-dropdown")?.remove();
   });
 
-  setMainTab("signals");
+  const initialTab = initRouter();
+  setMainTab(initialTab);
 
   // ── Path B (teaser mode): show banner, hide history/analytics ─
   if (state.teaserMode) {
@@ -366,8 +378,7 @@ async function init() {
   // Desktop tab buttons
   document.querySelectorAll(".main-tab-btn").forEach(btn =>
     btn.addEventListener("click", () => {
-      setMainTab(btn.dataset.main);
-      if (btn.dataset.main === "analytics") refreshAnalytics();
+      navigate(btn.dataset.main);
     })
   );
 
@@ -440,8 +451,7 @@ async function init() {
   // Bottom nav tabs (mobile)
   document.querySelectorAll(".bottom-nav-btn").forEach(btn =>
     btn.addEventListener("click", () => {
-      setMainTab(btn.dataset.main);
-      if (btn.dataset.main === "analytics") refreshAnalytics();
+      navigate(btn.dataset.main);
     })
   );
 

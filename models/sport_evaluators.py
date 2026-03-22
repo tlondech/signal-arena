@@ -51,6 +51,14 @@ _SURFACE_KEYWORDS: dict[str, list[str]] = {
 }
 
 
+def _tennis_short_name(full_name: str) -> str:
+    """Return 'F. Last' abbreviation from a full player name."""
+    parts = full_name.split()
+    if len(parts) < 2:
+        return full_name
+    return f"{parts[0][0]}. {' '.join(parts[1:])}"
+
+
 def _infer_surface(display_name: str) -> str:
     lower = display_name.lower()
     for surface, keywords in _SURFACE_KEYWORDS.items():
@@ -152,8 +160,8 @@ class TennisEvaluator:
         for event in upcoming_events:
             player1 = event["home_team"]
             player2 = event["away_team"]
-            p1_label = short_name_map.get(player1) if short_name_map else None
-            p2_label = short_name_map.get(player2) if short_name_map else None
+            p1_label = (short_name_map.get(player1) if short_name_map else None) or _tennis_short_name(player1)
+            p2_label = (short_name_map.get(player2) if short_name_map else None) or _tennis_short_name(player2)
             raw_signals = evaluate_tennis_match(
                 player1=player1,
                 player2=player2,

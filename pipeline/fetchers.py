@@ -222,10 +222,15 @@ def _build_tennis_maps() -> tuple[dict, dict, dict]:
                 seed_map[frozenset({m.home_team.lower(), m.away_team.lower()})] = entry
         short_name_map: dict[str, str] = {}
         for m in matches:
-            if m.metadata.get("home_short_name"):
-                short_name_map[m.home_team] = m.metadata["home_short_name"]
-            if m.metadata.get("away_short_name"):
-                short_name_map[m.away_team] = m.metadata["away_short_name"]
+            for espn_name, meta_key in [(m.home_team, "home_short_name"), (m.away_team, "away_short_name")]:
+                short = m.metadata.get(meta_key)
+                if short:
+                    short_name_map[espn_name] = short
+                    # Also index reversed word order so "Zheng Qinwen" (ESPN last-first)
+                    # matches "Qinwen Zheng" (Odds API first-last)
+                    parts = espn_name.split()
+                    if len(parts) == 2:
+                        short_name_map[f"{parts[1]} {parts[0]}"] = short
         return round_map, seed_map, short_name_map
     except Exception as e:
         logger.debug("Tennis maps fetch failed (non-fatal): %s", e)
