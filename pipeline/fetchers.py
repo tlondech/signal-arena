@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import date as _date
 from typing import Protocol
 
 from config import LeagueConfig, _current_season
@@ -90,11 +91,55 @@ class FootballFetcher:
                 odds_client=odds_client,
             )
 
+        # Fetch auxiliary fixtures for cross-league DC pooling (covers last season + current)
+        auxiliary_fixtures: list[dict] = []
+        if league.pool_leagues:
+            espn_pool = ESPNSoccerClient()
+            for pool_key in league.pool_leagues:
+                if pool_key not in ESPNSoccerClient.LEAGUE_MAP:
+                    logger.warning(
+                        "[%s] pool_leagues key %r not in LEAGUE_MAP — skipping.",
+                        league.key, pool_key,
+                    )
+                    continue
+                try:
+                    pool_fixtures = espn_pool.fetch_fixtures(
+                        _date(season - 1, 7, 1), _date.today(), leagues=[pool_key],
+                    )
+                    for f in pool_fixtures:
+                        f["_pool_source"] = pool_key
+                    auxiliary_fixtures.extend(pool_fixtures)
+                    logger.info(
+                        "[%s] Pooled %d fixture(s) from %r.",
+                        league.key, len(pool_fixtures), pool_key,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "[%s] Pool fetch from %r failed: %s — continuing without.",
+                        league.key, pool_key, exc,
+                    )
+
+            # Extend name auto-patching with pool fixture names to resolve
+            # promoted-team Winamax names that have no primary-league ESPN history yet.
+            if auxiliary_fixtures:
+                from models.features import auto_patch_name_map
+                winamax_names = (
+                    {ev["home_team"] for ev in upcoming_events}
+                    | {ev["away_team"] for ev in upcoming_events}
+                )
+                pool_espn_names = (
+                    {f["home_team"] for f in auxiliary_fixtures}
+                    | {f["away_team"] for f in auxiliary_fixtures}
+                )
+                auto_patch_name_map(
+                    league.key, winamax_names, pool_espn_names, name_map, cfg.team_map_path,
+                )
+
         leg2_map = build_leg2_map(upcoming_events, raw_fixtures, name_map, league.key)
         if leg2_map:
             logger.info("[%s] Detected %d Leg 2 fixture(s).", league.display_name, len(leg2_map))
 
-        features = build_features(raw_fixtures, name_map, league, cfg)
+        features = build_features(raw_fixtures, name_map, league, cfg, auxiliary_fixtures=auxiliary_fixtures)
         features["leg2_map"] = leg2_map
 
         if FootballFetcher._short_name_map_cache is None:

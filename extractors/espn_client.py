@@ -14,6 +14,7 @@ from datetime import datetime as _datetime
 import requests
 
 from constants import ESPN_API_BASE_URL
+from extractors.base import MatchData
 
 logger = logging.getLogger(__name__)
 _RATE_LIMIT_SECONDS = 0.3
@@ -65,14 +66,9 @@ class ESPNClient(ABC):
             return []
 
     @abstractmethod
-    def fetch_recent_results(self, days_back: int = 7) -> list[dict]:
+    def fetch_recent_results(self, days_back: int = 7) -> list[MatchData]:
         """
-        Returns completed matches from the last N days.
-
-        Uniform schema across all sports:
-            {home_team, away_team, home_score, away_score, match_date, league_key}
-
-        Tennis maps winner → home_team, loser → away_team.
+        Returns completed matches from the last N days as MatchData objects.
         Non-fatal — returns [] on failure.
         """
         ...

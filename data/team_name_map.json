@@ -1,19 +1,26 @@
 {
   "_meta": {
     "description": "Maps Winamax / The Odds API team names to football-data.co.uk canonical names, keyed by league key. Right-hand values must match exactly what the CSV HomeTeam/AwayTeam columns contain. Run main.py and fix any '[WARNING] No mapping found for' entries.",
-    "last_updated": "2026-03-19",
+    "last_updated": "2026-03-22",
     "leagues": [
       "ligue1",
       "ligue2",
       "coupedefrance",
       "epl",
+      "championship",
+      "leagueone",
+      "leaguetwo",
+      "nationalleague",
       "facup",
       "eflcup",
       "laliga",
+      "laliga2",
       "copadelrey",
       "bundesliga",
+      "bundesliga2",
       "dfbpokal",
       "seriea",
+      "serieb",
       "coppaditalia",
       "ucl",
       "uel",
@@ -86,6 +93,7 @@
     "Werder Bremen": "Werder Bremen",
     "Wolfsburg": "Wolfsburg"
   },
+  "bundesliga2": {},
   "copadelrey": {
     "AD Ceuta": "Ceuta",
     "Alaves": "Alaves",
@@ -697,6 +705,10 @@
     "Wolverhampton Wanderers FC": "Wolves",
     "Wolves": "Wolves"
   },
+  "championship": {},
+  "leagueone": {},
+  "leaguetwo": {},
+  "nationalleague": {},
   "euroqual": {},
   "facup": {
     "AFC Bournemouth": "Bournemouth",
@@ -919,6 +931,7 @@
     "Villarreal": "Villarreal",
     "Villarreal CF": "Villarreal"
   },
+  "laliga2": {},
   "ligue1": {
     "AJ Auxerre": "Auxerre",
     "AS Monaco": "Monaco",
@@ -1107,6 +1120,7 @@
     "Venezia FC": "Venezia",
     "Verona": "Verona"
   },
+  "serieb": {},
   "ucl": {
     "AC Milan": "AC Milan",
     "AC Sparta Prague": "AC Sparta Praha",

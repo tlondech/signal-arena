@@ -510,12 +510,15 @@ def fit_dixon_coles(
         return None
     team_idx = {t: i for i, t in enumerate(teams)}
 
-    # Time-decay weights: most recent fixture gets weight 1.0
+    # Time-decay weights: most recent fixture gets weight 1.0.
+    # If dc_weight column is present (cross-league pool), it further discounts pool fixtures.
     reference_date = fixtures_df["fixture_date"].max()
+    has_dc_weight = "dc_weight" in fixtures_df.columns
     rows = []
     for _, r in fixtures_df.iterrows():
         days_ago = (reference_date - r["fixture_date"]).days
-        w = math.exp(-xi * days_ago)
+        competition_weight = float(r["dc_weight"]) if has_dc_weight else 1.0
+        w = math.exp(-xi * days_ago) * competition_weight
         rows.append((
             team_idx[r["home_team"]],
             team_idx[r["away_team"]],

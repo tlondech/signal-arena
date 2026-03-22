@@ -41,28 +41,46 @@ class LeagueConfig:
     odds_sport: str                    # The Odds API sport key
     season_override: int | None = None # set only for competitions with non-standard seasons
     sport_type: str = "football"       # "football" | "tennis" | "basketball"
+    pool_leagues: list[str] = field(default_factory=list)  # related league keys for DC fixture pooling
 
 
 LEAGUES: list[LeagueConfig] = [
-    LeagueConfig("ligue1",          "Ligue 1",                   "soccer_france_ligue_one"),
-    LeagueConfig("ligue2",          "Ligue 2",                   "soccer_france_ligue_two"),
-    LeagueConfig("coupedefrance",    "Coupe de France",          "soccer_france_coupe_de_france"),
-    LeagueConfig("epl",             "Premier League",            "soccer_epl"),
-    LeagueConfig("facup",           "FA Cup",                    "soccer_fa_cup"),
-    LeagueConfig("eflcup",          "EFL Cup",                   "soccer_england_efl_cup"),
-    LeagueConfig("laliga",          "La Liga",                   "soccer_spain_la_liga"),
-    LeagueConfig("copadelrey",      "Copa del Rey",              "soccer_spain_copa_del_rey"),
-    LeagueConfig("bundesliga",      "Bundesliga",                "soccer_germany_bundesliga"),
-    LeagueConfig("dfbpokal",        "DFB-Pokal",                 "soccer_germany_dfb_pokal"),
-    LeagueConfig("seriea",          "Serie A",                   "soccer_italy_serie_a"),
-    LeagueConfig("coppaditalia",    "Coppa Italia",              "soccer_italy_coppa_italia"),
-    LeagueConfig("ucl",             "Champions League",          "soccer_uefa_champs_league"),
-    LeagueConfig("uel",             "Europa League",             "soccer_uefa_europa_league"),
-    LeagueConfig("uecl",            "Conference League",         "soccer_uefa_europa_conference_league"),
-    LeagueConfig("uefanations",     "UEFA Nations League",       "soccer_uefa_nations_league"),
-    LeagueConfig("euroqual",        "Euro Qualification",        "soccer_uefa_euro_qualification"),
-    LeagueConfig("worldcup",        "World Cup",                 "soccer_fifa_world_cup",                    season_override=2026),
-    LeagueConfig("wcqualeurope",    "WC Qualifiers Europe",      "soccer_fifa_world_cup_qualifiers_europe"),
+    # France
+    LeagueConfig("ligue1",          "Ligue 1",              "soccer_france_ligue_one",
+                 pool_leagues=["ligue2"]),
+    LeagueConfig("ligue2",          "Ligue 2",              "soccer_france_ligue_two"),
+    LeagueConfig("coupedefrance",   "Coupe de France",      "soccer_france_coupe_de_france",
+                 pool_leagues=["ligue1", "ligue2"]),
+    # England
+    LeagueConfig("epl",             "Premier League",       "soccer_epl",
+                 pool_leagues=["championship"]),
+    LeagueConfig("facup",           "FA Cup",               "soccer_fa_cup",
+                 pool_leagues=["epl", "championship", "leagueone", "leaguetwo", "nationalleague"]),
+    LeagueConfig("eflcup",          "EFL Cup",              "soccer_england_efl_cup",
+                 pool_leagues=["epl", "championship", "leagueone", "leaguetwo"]),
+    # Spain
+    LeagueConfig("laliga",          "La Liga",              "soccer_spain_la_liga",
+                 pool_leagues=["laliga2"]),
+    LeagueConfig("copadelrey",      "Copa del Rey",         "soccer_spain_copa_del_rey",
+                 pool_leagues=["laliga", "laliga2"]),
+    # Germany
+    LeagueConfig("bundesliga",      "Bundesliga",           "soccer_germany_bundesliga",
+                 pool_leagues=["bundesliga2"]),
+    LeagueConfig("dfbpokal",        "DFB-Pokal",            "soccer_germany_dfb_pokal",
+                 pool_leagues=["bundesliga", "bundesliga2"]),
+    # Italy
+    LeagueConfig("seriea",          "Serie A",              "soccer_italy_serie_a",
+                 pool_leagues=["serieb"]),
+    LeagueConfig("coppaditalia",    "Coppa Italia",         "soccer_italy_coppa_italia",
+                 pool_leagues=["seriea", "serieb"]),
+    # UEFA / FIFA (no pool_leagues: all-European, fixtures already diverse)
+    LeagueConfig("ucl",             "Champions League",     "soccer_uefa_champs_league"),
+    LeagueConfig("uel",             "Europa League",        "soccer_uefa_europa_league"),
+    LeagueConfig("uecl",            "Conference League",    "soccer_uefa_europa_conference_league"),
+    LeagueConfig("uefanations",     "UEFA Nations League",  "soccer_uefa_nations_league"),
+    LeagueConfig("euroqual",        "Euro Qualification",   "soccer_uefa_euro_qualification"),
+    LeagueConfig("worldcup",        "World Cup",            "soccer_fifa_world_cup",            season_override=2026),
+    LeagueConfig("wcqualeurope",    "WC Qualifiers Europe", "soccer_fifa_world_cup_qualifiers_europe"),
     LeagueConfig("nba", "NBA", "basketball_nba", sport_type="basketball"),
 ]
 

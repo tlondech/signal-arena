@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from config import LeagueConfig
 from constants import (
+    DIXON_COLES_FEEDER_FIXTURE_WEIGHT,
     DIXON_COLES_MIN_FIXTURES,
     DIXON_COLES_XI,
     UCL_PROB_RATIO_CAP,
@@ -28,11 +29,54 @@ from pipeline.helpers import get_outcome_label, is_live
 logger = logging.getLogger(__name__)
 
 
+def _build_dc_fixtures_df(
+    primary_df: pd.DataFrame,
+    auxiliary_fixtures: list[dict],
+    name_map: dict,
+    primary_league_key: str,
+) -> pd.DataFrame:
+    """
+    Merges primary league fixtures (dc_weight=1.0) with auxiliary pool fixtures
+    (dc_weight=FEEDER_WEIGHT) into a single DataFrame for DC model fitting.
+
+    Team names in auxiliary fixtures are resolved through their own pool league's
+    name_map entry. Returns primary_df with dc_weight=1.0 if no auxiliary fixtures.
+    """
+    primary = primary_df.copy()
+    primary["dc_weight"] = 1.0
+
+    if not auxiliary_fixtures:
+        return primary
+
+    aux_rows = []
+    for f in auxiliary_fixtures:
+        pool_key = f.get("_pool_source", "")
+        pool_map = name_map.get(pool_key, {})
+        home = pool_map.get(f["home_team"], f["home_team"])
+        away = pool_map.get(f["away_team"], f["away_team"])
+        aux_rows.append({
+            "fixture_date":   f["fixture_date"],
+            "home_team":      home,
+            "away_team":      away,
+            "home_goals":     f.get("home_goals"),
+            "away_goals":     f.get("away_goals"),
+            "home_goals_eff": f.get("home_xg") if f.get("home_xg") is not None else float(f.get("home_goals") or 0),
+            "away_goals_eff": f.get("away_xg") if f.get("away_xg") is not None else float(f.get("away_goals") or 0),
+            "dc_weight":      DIXON_COLES_FEEDER_FIXTURE_WEIGHT,
+        })
+
+    aux_df = pd.DataFrame(aux_rows)
+    aux_df["fixture_date"] = pd.to_datetime(aux_df["fixture_date"], utc=True)
+    combined = pd.concat([primary, aux_df], ignore_index=True)
+    return combined.sort_values("fixture_date").reset_index(drop=True)
+
+
 def build_features(
     raw_fixtures: list[dict],
     name_map: dict,
     league: LeagueConfig,
     cfg,
+    auxiliary_fixtures: list[dict] | None = None,
 ) -> dict:
     """
     Builds feature inputs for the evaluation phase.
@@ -76,7 +120,8 @@ def build_features(
         league.key, league_avgs["avg_home_goals"], league_avgs["avg_away_goals"],
     )
 
-    dc_params = fit_dixon_coles(fixtures_df, xi=DIXON_COLES_XI, min_fixtures=DIXON_COLES_MIN_FIXTURES)
+    dc_fixtures_df = _build_dc_fixtures_df(fixtures_df, auxiliary_fixtures or [], name_map, league.key)
+    dc_params = fit_dixon_coles(dc_fixtures_df, xi=DIXON_COLES_XI, min_fixtures=DIXON_COLES_MIN_FIXTURES)
     if dc_params is not None:
         logger.info(
             "[%s] Dixon-Coles fit: %d teams, %d fixtures, ρ=%.4f, γ=%.4f",
@@ -250,7 +295,7 @@ def evaluate_matches(
         }
         spread_home_key = result.get("spread_home_key")
         spread_away_key = result.get("spread_away_key")
-        if spread_home_key:
+        if spread_home_key and spread_away_key:
             outcome_map[spread_home_key] = (result[spread_home_key + "_prob"], event.get("spread_home_odds"), result[spread_home_key + "_ev"])
             outcome_map[spread_away_key] = (result[spread_away_key + "_prob"], event.get("spread_away_odds"), result[spread_away_key + "_ev"])
         kickoff_iso = event["commence_time"].isoformat()

@@ -71,6 +71,11 @@ DIXON_COLES_RHO_FLOOR = 1e-10
 # degenerate solutions when n_teams > n_fixtures.
 DIXON_COLES_L2_REG = 0.01
 
+# Relative weight for pool (feeder/related) league fixtures in the DC fit.
+# Applied as a multiplier on top of the standard time-decay weight exp(-xi * days_ago).
+# Primary league fixtures get weight 1.0; pool fixtures get this discount.
+DIXON_COLES_FEEDER_FIXTURE_WEIGHT = 0.65
+
 
 # ---------------------------------------------------------------------------
 # Poisson lambda clamping

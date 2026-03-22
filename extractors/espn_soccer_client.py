@@ -32,31 +32,38 @@ class ESPNSoccerClient(ESPNClient):
 
     LEAGUE_MAP: dict[str, str] = {
         # France
-        "ligue1":       "fra.1",
-        "ligue2":       "fra.2",
-        "coupedefrance": "fra.coupe_de_france",
+        "ligue1":          "fra.1",
+        "ligue2":          "fra.2",
+        "coupedefrance":   "fra.coupe_de_france",
         # England
-        "epl":          "eng.1",
-        "facup":        "eng.fa",
-        "eflcup":       "eng.league_cup",
+        "epl":             "eng.1",
+        "championship":    "eng.2",       # pool-only: no Winamax odds
+        "leagueone":       "eng.3",       # pool-only: no Winamax odds
+        "leaguetwo":       "eng.4",       # pool-only: no Winamax odds
+        "nationalleague":  "eng.5",       # pool-only: no Winamax odds
+        "facup":           "eng.fa",
+        "eflcup":          "eng.league_cup",
         # Spain
-        "laliga":       "esp.1",
-        "copadelrey":   "esp.copa_del_rey",
+        "laliga":          "esp.1",
+        "laliga2":         "esp.2",       # pool-only: no Winamax odds
+        "copadelrey":      "esp.copa_del_rey",
         # Germany
-        "bundesliga":   "ger.1",
-        "dfbpokal":     "ger.dfb_pokal",
+        "bundesliga":      "ger.1",
+        "bundesliga2":     "ger.2",       # pool-only: no Winamax odds
+        "dfbpokal":        "ger.dfb_pokal",
         # Italy
-        "seriea":       "ita.1",
-        "coppaditalia": "ita.coppa_italia",
+        "seriea":          "ita.1",
+        "serieb":          "ita.2",       # pool-only: no Winamax odds
+        "coppaditalia":    "ita.coppa_italia",
         # UEFA
-        "ucl":          "uefa.champions",
-        "uel":          "uefa.europa",
-        "uecl":         "uefa.europa.conf",
-        "uefanations":  "uefa.nations",
-        "euroqual":     "uefa.euroq",
+        "ucl":             "uefa.champions",
+        "uel":             "uefa.europa",
+        "uecl":            "uefa.europa.conf",
+        "uefanations":     "uefa.nations",
+        "euroqual":        "uefa.euroq",
         # FIFA
-        "worldcup":     "fifa.world",
-        "wcqualeurope": "fifa.worldq.uefa",
+        "worldcup":        "fifa.world",
+        "wcqualeurope":    "fifa.worldq.uefa",
     }
 
     def fetch_recent_results(self, days_back: int = 7) -> list[MatchData]:
