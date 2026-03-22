@@ -200,7 +200,7 @@ function renderSportTable(records) {
           <td class="px-4 py-3 text-sm font-medium whitespace-nowrap">${label[r.sport] ?? r.sport}</td>
           <td class="px-4 py-3 text-sm text-center text-gray-500 whitespace-nowrap">${r.signals}</td>
           <td class="px-4 py-3 text-sm text-center font-medium whitespace-nowrap ${r.roi >= 0 ? 'text-green-500' : 'text-red-500'}">${r.roi >= 0 ? '+' : ''}${r.roi}%</td>
-          <td class="px-4 py-3 text-sm text-center font-medium whitespace-nowrap ${r.pnl >= 0 ? 'text-green-500' : 'text-red-500'}">${r.pnl >= 0 ? '+' : ''}€${r.pnl}</td>
+          <td class="pl-4 pr-6 py-3 text-sm text-center font-medium whitespace-nowrap ${r.pnl >= 0 ? 'text-green-500' : 'text-red-500'}">${r.pnl >= 0 ? '+' : ''}€${r.pnl}</td>
         </tr>`).join('')
     : '<tr><td colspan="4" class="px-4 py-6 text-center text-sm text-gray-400">No settled data yet.</td></tr>';
 }
