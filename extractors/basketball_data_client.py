@@ -6,7 +6,7 @@ Falls back to an on-disk CSV cache written after every successful fetch.
 """
 
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -95,120 +95,19 @@ def _parse_score(raw) -> int:
 
 
 def _fetch_from_espn(season: str) -> pd.DataFrame:
-    """
-    Fetches full-season game logs from ESPN's scoreboard endpoint using monthly
-    date-range requests (9 requests total). No API key required.
-    """
-    import calendar as cal
-
+    """Fetches full-season game logs from ESPN's scoreboard endpoint. No API key required."""
     season_year = _espn_season_year(season)
-    start_year  = season_year - 1
-    now         = datetime.now(timezone.utc)
+    today       = datetime.now(timezone.utc).date()
+    start_dt    = date(season_year - 1, 10, 1)
+    end_dt      = min(date(season_year, 6, 30), today)
 
-    # NBA season: Oct of start_year through Jun of season_year
-    months = (
-        [(start_year, m) for m in range(10, 13)] +
-        [(season_year, m) for m in range(1, 7)]
-    )
-    logger.debug("ESPN _fetch_from_espn: season_year=%d, %d months planned", season_year, len(months))
-
-    client   = ESPNBasketballClient()
-    all_rows: list[dict] = []
-    seen: set[tuple]     = set()
-
-    for year, month in months:
-        if datetime(year, month, 1, tzinfo=timezone.utc) > now:
-            logger.debug("ESPN skipping future month %d-%02d", year, month)
-            break
-
-        last_day   = cal.monthrange(year, month)[1]
-        start_dt   = date(year, month, 1)
-        end_dt     = date(year, month, last_day)
-        date_range = f"{year}{month:02d}01-{year}{month:02d}{last_day:02d}"  # for logging
-
-        events = client.fetch_scoreboard(client.SPORT, client.LEAGUE_MAP["nba"], start_dt, end_dt)
-
-        completed = 0
-        skipped   = 0
-
-        for event in events:
-            comps = event.get("competitions")
-            if not comps:
-                continue
-            comp = comps[0]
-            if not comp.get("status", {}).get("type", {}).get("completed"):
-                skipped += 1
-                continue
-
-            competitors = comp.get("competitors", [])
-            home = next((c for c in competitors if c["homeAway"] == "home"), None)
-            away = next((c for c in competitors if c["homeAway"] == "away"), None)
-            if not home or not away:
-                continue
-
-            try:
-                home_pts = _parse_score(home["score"])
-                away_pts = _parse_score(away["score"])
-            except (KeyError, ValueError, TypeError) as exc:
-                logger.debug("ESPN bad-score: home=%s away=%s err=%s", home.get("score"), away.get("score"), exc)
-                skipped += 1
-                continue
-
-            game_date = datetime.strptime(event["date"][:10], "%Y-%m-%d").date()
-            home_abbr = home["team"].get("abbreviation")
-            away_abbr = away["team"].get("abbreviation")
-            if not home_abbr or not away_abbr:
-                skipped += 1
-                continue
-            home_name = home["team"].get("displayName", home_abbr)
-            away_name = away["team"].get("displayName", away_abbr)
-
-            key = (game_date, home_abbr, away_abbr)
-            if key in seen:
-                continue
-            seen.add(key)
-            completed += 1
-
-            # One row per team perspective (home + away)
-            for is_home, abbr, name, pts, opp_pts, opp_name in [
-                (True,  home_abbr, home_name, home_pts, away_pts, away_name),
-                (False, away_abbr, away_name, away_pts, home_pts, home_name),
-            ]:
-                all_rows.append({
-                    "TEAM_ABBREVIATION": abbr,
-                    "TEAM_NAME":         name,
-                    "GAME_DATE":         game_date,
-                    "is_home":           is_home,
-                    "PTS":               pts,
-                    "OPP_PTS":           opp_pts,
-                    "OPP_TEAM_NAME":     opp_name,
-                })
-
-        logger.debug(
-            "ESPN scoreboard %s: %d events, %d completed, %d skipped",
-            date_range, len(events), completed, skipped,
-        )
-
-    if not all_rows:
-        logger.warning("ESPN returned no game rows for season %s (season_year=%d)", season, season_year)
-        return pd.DataFrame()
-
-    df = pd.DataFrame(all_rows).reset_index(drop=True)
-    logger.info("NBA ESPN: %d game rows fetched for season %s", len(df), season)
-    return df
-
-
-def _fetch_recent_from_espn(days_back: int) -> list[dict]:
-    """Fetches completed games from the last `days_back` days via ESPN scoreboard."""
-    today = datetime.now(timezone.utc).date()
-    start = today - timedelta(days=days_back)
-
-    logger.debug("ESPN _fetch_recent_from_espn: fetching %s to %s", start, today)
+    logger.debug("ESPN _fetch_from_espn: season=%s %s → %s", season, start_dt, end_dt)
 
     client = ESPNBasketballClient()
-    events = client.fetch_scoreboard(client.SPORT, client.LEAGUE_MAP["nba"], start, today, limit=500)
-    result = []
-    seen: set[tuple] = set()
+    events = client.fetch_scoreboard(client.SPORT, client.LEAGUE_MAP["nba"], start_dt, end_dt)
+
+    all_rows: list[dict] = []
+    seen: set[tuple]     = set()
 
     for event in events:
         comps = event.get("competitions")
@@ -225,29 +124,46 @@ def _fetch_recent_from_espn(days_back: int) -> list[dict]:
             continue
 
         try:
-            home_pts = int(home["score"])
-            away_pts = int(away["score"])
-        except (KeyError, ValueError, TypeError):
+            home_pts = _parse_score(home["score"])
+            away_pts = _parse_score(away["score"])
+        except (KeyError, ValueError, TypeError) as exc:
+            logger.debug("ESPN bad-score: home=%s away=%s err=%s", home.get("score"), away.get("score"), exc)
             continue
 
         game_date = datetime.strptime(event["date"][:10], "%Y-%m-%d").date()
-        home_team = home["team"]["displayName"]
-        away_team = away["team"]["displayName"]
-        key       = (game_date, home_team, away_team)
+        home_abbr = home["team"].get("abbreviation")
+        away_abbr = away["team"].get("abbreviation")
+        if not home_abbr or not away_abbr:
+            continue
+        home_name = home["team"].get("displayName", home_abbr)
+        away_name = away["team"].get("displayName", away_abbr)
+
+        key = (game_date, home_abbr, away_abbr)
         if key in seen:
             continue
         seen.add(key)
 
-        result.append({
-            "home_team": home_team,
-            "away_team": away_team,
-            "home_pts":  home_pts,
-            "away_pts":  away_pts,
-            "game_date": game_date,
-        })
+        for is_home, abbr, name, pts, opp_pts, opp_name in [
+            (True,  home_abbr, home_name, home_pts, away_pts, away_name),
+            (False, away_abbr, away_name, away_pts, home_pts, home_name),
+        ]:
+            all_rows.append({
+                "TEAM_ABBREVIATION": abbr,
+                "TEAM_NAME":         name,
+                "GAME_DATE":         game_date,
+                "is_home":           is_home,
+                "PTS":               pts,
+                "OPP_PTS":           opp_pts,
+                "OPP_TEAM_NAME":     opp_name,
+            })
 
-    logger.debug("ESPN recent results total: %d games over %d days", len(result), days_back)
-    return result
+    if not all_rows:
+        logger.warning("ESPN returned no game rows for season %s (season_year=%d)", season, season_year)
+        return pd.DataFrame()
+
+    df = pd.DataFrame(all_rows).reset_index(drop=True)
+    logger.info("NBA ESPN: %d game rows fetched for season %s", len(df), season)
+    return df
 
 
 # ---------------------------------------------------------------------------

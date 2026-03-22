@@ -65,6 +65,7 @@ class FootballFetcher:
     """Fetches ESPN fixture history, builds features and leg-2 context."""
 
     _short_name_map_cache: dict | None = None
+    _pool_fixtures_cache: dict[tuple[str, int], list[dict]] = {}  # (pool_key, season) → fixtures
 
     def fetch(
         self,
@@ -91,6 +92,13 @@ class FootballFetcher:
                 odds_client=odds_client,
             )
 
+        # Cache primary fixtures so other leagues can pool this league without a second fetch
+        if raw_fixtures:
+            cache_key = (league.key, season)
+            if cache_key not in FootballFetcher._pool_fixtures_cache:
+                tagged = [{**f, "_pool_source": league.key} for f in raw_fixtures]
+                FootballFetcher._pool_fixtures_cache[cache_key] = tagged
+
         # Fetch auxiliary fixtures for cross-league DC pooling (covers last season + current)
         auxiliary_fixtures: list[dict] = []
         if league.pool_leagues:
@@ -102,22 +110,32 @@ class FootballFetcher:
                         league.key, pool_key,
                     )
                     continue
-                try:
-                    pool_fixtures = espn_pool.fetch_fixtures(
-                        _date(season - 1, 7, 1), _date.today(), leagues=[pool_key],
-                    )
-                    for f in pool_fixtures:
-                        f["_pool_source"] = pool_key
-                    auxiliary_fixtures.extend(pool_fixtures)
+                cache_key = (pool_key, season)
+                if cache_key in FootballFetcher._pool_fixtures_cache:
+                    pool_fixtures = FootballFetcher._pool_fixtures_cache[cache_key]
                     logger.info(
-                        "[%s] Pooled %d fixture(s) from %r.",
+                        "[%s] Pooled %d fixture(s) from %r (cached).",
                         league.key, len(pool_fixtures), pool_key,
                     )
-                except Exception as exc:
-                    logger.warning(
-                        "[%s] Pool fetch from %r failed: %s — continuing without.",
-                        league.key, pool_key, exc,
-                    )
+                else:
+                    try:
+                        pool_fixtures = espn_pool.fetch_fixtures(
+                            _date(season - 1, 7, 1), _date.today(), leagues=[pool_key],
+                        )
+                        for f in pool_fixtures:
+                            f["_pool_source"] = pool_key
+                        FootballFetcher._pool_fixtures_cache[cache_key] = pool_fixtures
+                        logger.info(
+                            "[%s] Pooled %d fixture(s) from %r.",
+                            league.key, len(pool_fixtures), pool_key,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "[%s] Pool fetch from %r failed: %s — continuing without.",
+                            league.key, pool_key, exc,
+                        )
+                        continue
+                auxiliary_fixtures.extend(pool_fixtures)
 
             # Extend name auto-patching with pool fixture names to resolve
             # promoted-team Winamax names that have no primary-league ESPN history yet.

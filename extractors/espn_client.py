@@ -5,6 +5,7 @@ No API key required. No caching — that is a caller concern.
 Subclass this to build sport-specific ESPN clients.
 """
 
+import calendar
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -42,28 +43,46 @@ class ESPNClient(ABC):
         """
         Fetches raw events from the ESPN scoreboard for a date range.
 
-        GET {BASE_URL}/{sport}/{league}/scoreboard?dates=YYYYMMDD-YYYYMMDD
+        ESPN rejects ranges longer than ~1 month, so requests spanning multiple
+        months are automatically split into per-month chunks and merged.
 
-        Returns the raw ``events`` array from the ESPN JSON response, or []
-        on any network / parse failure.
+        Returns the combined raw ``events`` array, or [] on failure.
         """
-        date_range = f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
         url = f"{ESPN_API_BASE_URL}/{sport}/{league}/scoreboard"
-        try:
-            time.sleep(_RATE_LIMIT_SECONDS)
-            r = requests.get(
-                url,
-                params={"dates": date_range, "limit": limit},
-                timeout=_TIMEOUT,
-            )
-            r.raise_for_status()
-            return r.json().get("events", [])
-        except Exception as exc:
-            logger.warning(
-                "ESPN scoreboard fetch failed (%s/%s %s): %s",
-                sport, league, date_range, exc,
-            )
-            return []
+        all_events: list[dict] = []
+
+        # Build list of (chunk_start, chunk_end) month-sized windows
+        chunks: list[tuple[date, date]] = []
+        cur = start_date.replace(day=1)
+        while cur <= end_date:
+            last_day = calendar.monthrange(cur.year, cur.month)[1]
+            chunk_start = max(cur, start_date)
+            chunk_end   = min(date(cur.year, cur.month, last_day), end_date)
+            chunks.append((chunk_start, chunk_end))
+            # Advance to first day of next month
+            if cur.month == 12:
+                cur = date(cur.year + 1, 1, 1)
+            else:
+                cur = date(cur.year, cur.month + 1, 1)
+
+        for chunk_start, chunk_end in chunks:
+            date_range = f"{chunk_start.strftime('%Y%m%d')}-{chunk_end.strftime('%Y%m%d')}"
+            try:
+                time.sleep(_RATE_LIMIT_SECONDS)
+                r = requests.get(
+                    url,
+                    params={"dates": date_range, "limit": limit},
+                    timeout=_TIMEOUT,
+                )
+                r.raise_for_status()
+                all_events.extend(r.json().get("events", []))
+            except Exception as exc:
+                logger.warning(
+                    "ESPN scoreboard fetch failed (%s/%s %s): %s",
+                    sport, league, date_range, exc,
+                )
+
+        return all_events
 
     @abstractmethod
     def fetch_recent_results(self, days_back: int = 7) -> list[MatchData]:

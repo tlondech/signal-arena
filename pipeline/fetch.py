@@ -91,9 +91,9 @@ def fetch_league_data(
                 if not event.get("stage"):
                     event["stage"] = current_stage
 
-    # Fetch finished fixtures from ESPN
+    # Fetch finished fixtures from ESPN (two seasons for a richer DC training set)
     espn = ESPNSoccerClient()
-    season_start = date(season, 7, 1)
+    season_start = date(season - 1, 7, 1)
     raw_fixtures = espn.fetch_fixtures(season_start, date.today(), leagues=[league.key])
 
     if not raw_fixtures:
