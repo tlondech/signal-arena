@@ -360,7 +360,7 @@ export function renderAuthScreen(showcaseSignals = null) {
           </div>
 
           <!-- How it works -->
-          <div class="mb-8">
+          <div class="mb-4">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">How it works</p>
             <div class="space-y-3">
               <div class="flex gap-3 items-start">
@@ -377,12 +377,6 @@ export function renderAuthScreen(showcaseSignals = null) {
               </div>
             </div>
           </div>
-
-          <p class="text-xs text-gray-400 dark:text-gray-600 mt-8 leading-relaxed">
-            For informational purposes only. Not financial or wagering advice. Participate responsibly. ·
-            <a href="terms.html" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">Terms</a> ·
-            <a href="privacy.html" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">Privacy</a>
-          </p>
         </div>
 
         <!-- RIGHT PANEL -->
@@ -426,6 +420,13 @@ export function renderAuthScreen(showcaseSignals = null) {
           })()}
         </div>
 
+      </div>
+      <div class="max-w-6xl mx-auto px-6 pb-8 pt-4 flex justify-center">
+        <p class="text-xs text-gray-400 dark:text-gray-600 leading-relaxed text-center">
+          For informational purposes only. Not financial or wagering advice. Participate responsibly. ·
+          <a href="terms.html" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">Terms</a> ·
+          <a href="privacy.html" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">Privacy</a>
+        </p>
       </div>
     </div>`;
 }
