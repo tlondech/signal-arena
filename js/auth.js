@@ -92,23 +92,12 @@ function buildShowcaseCard(signal) {
       ? "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300"
       : "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300";
     const cleanName = (signal.league_name || "").replace(/^(ATP|WTA)\s+/i, "").trim();
-    const parts = [cleanName, signal.stage].filter(Boolean);
-    const surCls = signal.surface === "Clay"  ? "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300"
-                 : signal.surface === "Grass" ? "bg-green-100  text-green-800  dark:bg-green-900/40  dark:text-green-300"
-                 :                              "bg-sky-100    text-sky-800    dark:bg-sky-900/40    dark:text-sky-300";
     leagueBadgeHtml = `
-      <span class="inline-flex items-center leading-none px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${circuitCls}">${isATP ? "ATP" : "WTA"}</span>
-      <span class="inline-flex items-center leading-none px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${surCls}">${parts.join(" \u00b7 ")}</span>`;
+      <span class="inline-flex items-center leading-none px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${circuitCls}">${cleanName}</span>`;
   } else {
     const shortName = SHOWCASE_LEAGUE_SHORT[signal.league_key] || signal.league_name;
-    let shortStage = (signal.stage || "")
-      .replace("Matchday", "MD")
-      .replace("Round of 16", "R16")
-      .replace("Quarter-finals", "QF")
-      .replace("Semi-finals", "SF");
-    const badgeText = shortStage ? `${shortName} \u2022 ${shortStage}` : shortName;
     const cls = SHOWCASE_LEAGUE_CLS[signal.league_key] || "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
-    leagueBadgeHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${cls}">${badgeText}</span>`;
+    leagueBadgeHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${cls}">${shortName}</span>`;
   }
 
   // ── Score in header ────────────────────────────────────────────
