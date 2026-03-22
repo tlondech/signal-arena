@@ -1,6 +1,6 @@
 import { state } from "./state.js";
 import { fetchSignals, fetchHistoryPage, fetchPendingSignals, fetchShowcaseSignals } from "./api.js";
-import { setupAnalytics } from "./analytics.js";
+import { setupAnalytics, refreshAnalytics } from "./analytics.js";
 import { navigate, initRouter } from "./router.js";
 import {
   relativeDate,
@@ -539,6 +539,7 @@ async function init() {
 
   showLoading();
   await refreshData();
+  if (initialTab === "analytics") refreshAnalytics();
 }
 
 init();
