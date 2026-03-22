@@ -114,15 +114,7 @@ function buildShowcaseCard(signal) {
   // ── Score in header ────────────────────────────────────────────
   let scoreHtml = "";
   if (signal.actual_home_score != null && signal.actual_away_score != null) {
-    if (isTennis && signal.score_detail) {
-      let detail = signal.score_detail;
-      if (signal.actual_away_score > signal.actual_home_score) {
-        detail = detail.split(" ").map(s => { const [a, b] = s.split("-"); return `${b}-${a}`; }).join(" ");
-      }
-      scoreHtml = `<span class="text-xs font-mono text-gray-500 dark:text-gray-400">${detail}</span>`;
-    } else {
-      scoreHtml = `<span class="text-sm font-bold tabular-nums">${signal.actual_home_score}–${signal.actual_away_score}</span>`;
-    }
+    scoreHtml = `<span class="text-sm font-bold tabular-nums">${signal.actual_home_score}–${signal.actual_away_score}</span>`;
   }
 
   // ── Team crests & ranks ────────────────────────────────────────
@@ -137,6 +129,13 @@ function buildShowcaseCard(signal) {
   const awayRank = isTennis && signal.away_rank
     ? `<span class="text-xs font-medium text-gray-400 dark:text-gray-500">#${signal.away_rank}</span>` : "";
 
+  // ── Sport emoji & date ─────────────────────────────────────────
+  const sportEmoji = isTennis ? "🎾" : isBasketball ? "🏀" : "⚽";
+  const kickoffDate = signal.kickoff ? new Date(signal.kickoff) : null;
+  const dateLabel = kickoffDate
+    ? kickoffDate.toLocaleDateString(undefined, { day: "numeric", month: "short" })
+    : "";
+
   // ── Signal label ───────────────────────────────────────────────
   let signalLabel = signal.outcome_label || "";
   if (isBasketball && signal.handicap_line != null) {
@@ -149,9 +148,11 @@ function buildShowcaseCard(signal) {
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden opacity-90">
         <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700">
           <div class="flex flex-wrap items-center gap-1.5 mr-3 min-w-0 overflow-hidden">
+            <span class="text-base leading-none">${sportEmoji}</span>
             ${leagueBadgeHtml}
           </div>
           <div class="flex items-center gap-2 shrink-0">
+            ${dateLabel ? `<span class="text-xs text-gray-500 dark:text-gray-400 tabular-nums">${dateLabel}</span>` : ""}
             ${scoreHtml}
             <span class="text-[10px] font-bold uppercase tracking-wider bg-green-600/80 text-white px-1.5 py-0.5 rounded whitespace-nowrap">Hit ✓</span>
           </div>
