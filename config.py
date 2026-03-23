@@ -73,10 +73,14 @@ LEAGUES: list[LeagueConfig] = [
                  pool_leagues=["serieb"]),
     LeagueConfig("coppaditalia",    "Coppa Italia",         "soccer_italy_coppa_italia",
                  pool_leagues=["seriea", "serieb"]),
-    # UEFA / FIFA (no pool_leagues: all-European, fixtures already diverse)
-    LeagueConfig("ucl",             "Champions League",     "soccer_uefa_champs_league"),
-    LeagueConfig("uel",             "Europa League",        "soccer_uefa_europa_league"),
-    LeagueConfig("uecl",            "Conference League",    "soccer_uefa_europa_conference_league"),
+    # UEFA (pool within the three European club competitions — a team may play UCL one
+    # season and UEL the next, so cross-competition fixtures enrich the DC training set)
+    LeagueConfig("ucl",             "Champions League",     "soccer_uefa_champs_league",
+                 pool_leagues=["uel"]),
+    LeagueConfig("uel",             "Europa League",        "soccer_uefa_europa_league",
+                 pool_leagues=["ucl", "uecl"]),
+    LeagueConfig("uecl",            "Conference League",    "soccer_uefa_europa_conference_league",
+                 pool_leagues=["uel"]),
     LeagueConfig("uefanations",     "UEFA Nations League",  "soccer_uefa_nations_league"),
     LeagueConfig("euroqual",        "Euro Qualification",   "soccer_uefa_euro_qualification"),
     LeagueConfig("worldcup",        "World Cup",            "soccer_fifa_world_cup",            season_override=2026),
@@ -123,7 +127,7 @@ class Config:
 
     # Paths
     db_path: str = "data/signals.db"
-    team_map_path: str = "data/team_name_map.json"
+    team_map_dir: str = "data/team_name_maps"
     football_crest_map_path: str = "data/football_crest_map.json"
     tennis_crest_map_path: str = "data/tennis_crest_map.json"
     nba_crest_map_path: str = "data/nba_crest_map.json"

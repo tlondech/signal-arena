@@ -16,6 +16,7 @@ from constants import (
     DIXON_COLES_GAMMA_BOUNDS,
     DIXON_COLES_INIT_GAMMA,
     DIXON_COLES_INIT_RHO,
+    DIXON_COLES_MAX_FUN,
     DIXON_COLES_MAX_ITER,
     DIXON_COLES_MIN_FIXTURES,
     DIXON_COLES_L2_REG,
@@ -72,24 +73,39 @@ def _apply_agg_adjustment(
     return home_lambda, away_lambda
 
 
-def load_team_name_map(path: str) -> dict[str, dict[str, str]]:
+def load_team_name_map(map_dir: str) -> dict[str, dict[str, str]]:
     """
-    Loads the Winamax→API-Football name mapping from JSON.
-    Returns a nested dict keyed by league_key.
-    Top-level keys starting with '_' (metadata) are ignored.
-    Raises ValueError on duplicate keys so CI catches copy-paste errors.
+    Loads the Winamax→ESPN canonical name mappings from per-league JSON files.
+
+    Reads every ``{map_dir}/{league_key}.json`` found in the directory.
+    Returns a nested dict keyed by league_key: {winamax_name: canonical_name}.
+    Keys starting with '_' (e.g. '_updated') are ignored.
+    Raises ValueError on duplicate team name keys within a file.
     """
+    import os
+
     def _raise_on_duplicates(pairs):
         result = {}
         for k, v in pairs:
             if k in result:
-                raise ValueError(f"Duplicate key in team_name_map.json: {k!r}")
+                raise ValueError(f"Duplicate key in team name map: {k!r}")
             result[k] = v
         return result
 
-    with open(path, encoding="utf-8") as f:
-        raw = json.load(f, object_pairs_hook=_raise_on_duplicates)
-    return {k: v for k, v in raw.items() if not k.startswith("_")}
+    result: dict[str, dict[str, str]] = {}
+    if not os.path.isdir(map_dir):
+        return result
+
+    for filename in os.listdir(map_dir):
+        if not filename.endswith(".json"):
+            continue
+        league_key = filename[:-5]  # strip .json
+        filepath = os.path.join(map_dir, filename)
+        with open(filepath, encoding="utf-8") as f:
+            raw = json.load(f, object_pairs_hook=_raise_on_duplicates)
+        result[league_key] = {k: v for k, v in raw.items() if not k.startswith("_")}
+
+    return result
 
 
 def auto_patch_name_map(
@@ -97,18 +113,19 @@ def auto_patch_name_map(
     winamax_names: set[str],
     espn_names: set[str],
     name_map: dict,
-    map_path: str,
+    map_dir: str,
     threshold: float = 0.85,
 ) -> int:
     """Fuzzy-match unmapped Winamax names against known ESPN names for a league.
 
     For each Winamax name that has no entry in name_map[league_key], attempts a
     fuzzy match against ``espn_names``.  Matches with a ratio >= ``threshold`` are
-    written back to the JSON file and into the live ``name_map`` dict so the
-    current run can use them immediately.
+    written back to ``{map_dir}/{league_key}.json`` and into the live ``name_map``
+    dict so the current run can use them immediately.
 
     Returns the number of new mappings added.
     """
+    import os
     league_dict = name_map.setdefault(league_key, {})
     new_entries: dict[str, str] = {}
 
@@ -119,8 +136,6 @@ def auto_patch_name_map(
         if not matches:
             continue
         espn_name = matches[0]
-        if espn_name == winamax_name:
-            continue  # identity — no mapping needed
         new_entries[winamax_name] = espn_name
         logger.info(
             "[name-map] Auto-resolved '%s' → '%s' (league '%s')",
@@ -132,12 +147,15 @@ def auto_patch_name_map(
 
     league_dict.update(new_entries)
 
-    with open(map_path, encoding="utf-8") as f:
-        raw = json.load(f)
-    raw.setdefault(league_key, {}).update(new_entries)
-    raw["_meta"]["last_updated"] = __import__("datetime").date.today().isoformat()
+    map_path = os.path.join(map_dir, f"{league_key}.json")
+    existing: dict = {}
+    if os.path.exists(map_path):
+        with open(map_path, encoding="utf-8") as f:
+            existing = json.load(f)
+    existing.update(new_entries)
+    existing["_updated"] = __import__("datetime").date.today().isoformat()
     with open(map_path, "w", encoding="utf-8") as f:
-        json.dump(raw, f, indent=2, ensure_ascii=False)
+        json.dump(dict(sorted(existing.items())), f, indent=2, ensure_ascii=False)
 
     return len(new_entries)
 
@@ -154,8 +172,8 @@ def resolve_team_name(winamax_name: str, name_map: dict, league_key: str) -> str
         if key not in _warned_unmapped:
             _warned_unmapped.add(key)
             logger.warning(
-                "No mapping: '%s' in '%s' — add to data/team_name_map.json",
-                winamax_name, league_key,
+                "No mapping: '%s' in '%s' — add to data/team_name_maps/%s.json",
+                winamax_name, league_key, league_key,
             )
     return canonical
 
@@ -581,7 +599,7 @@ def fit_dixon_coles(
         x0,
         method="L-BFGS-B",
         bounds=bounds,
-        options={"maxiter": DIXON_COLES_MAX_ITER, "maxfun": DIXON_COLES_MAX_ITER * 20, "ftol": DIXON_COLES_FTOL},
+        options={"maxiter": DIXON_COLES_MAX_ITER, "maxfun": DIXON_COLES_MAX_FUN, "ftol": DIXON_COLES_FTOL},
     )
     if not result.success:
         logger.warning("Dixon-Coles optimisation did not fully converge: %s", result.message)

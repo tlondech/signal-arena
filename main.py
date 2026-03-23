@@ -166,7 +166,7 @@ def _persist(supabase, all_signals: list[dict], processed_league_keys: set[str])
 def run_pipeline(force_fetch: bool = False, dry_run: bool = False) -> None:
     t0 = time.monotonic()
     cfg = load_config()
-    name_map = load_team_name_map(cfg.team_map_path)
+    name_map = load_team_name_map(cfg.team_map_dir)
 
     # ── INIT ──────────────────────────────────────────────────────────────────
     logger.info("── INIT ──")

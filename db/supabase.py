@@ -467,7 +467,7 @@ def settle_nba_supabase_signals(
     """
     Settles unsettled NBA signals in Supabase using ESPN game results.
 
-    Uses team_name_map.json["nba"] to normalise both sides to abbreviations
+    Uses data/team_name_maps/nba.json to normalise both sides to abbreviations
     (e.g. "LA Clippers" and "Los Angeles Clippers" both → "LAC"), so matching
     is robust to display-name differences between the odds source and ESPN.
 

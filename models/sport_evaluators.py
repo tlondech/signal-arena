@@ -239,7 +239,7 @@ class NBAEvaluator:
             if not home_abbr or not away_abbr:
                 logger.debug(
                     "[NBA] Skipping %s vs %s — unmapped team name(s) "
-                    "(check team_name_map.json[\"nba\"]).",
+                    "(check data/team_name_maps/nba.json).",
                     home_winamax, away_winamax,
                 )
                 n_unmapped += 1
@@ -330,7 +330,7 @@ class NBAEvaluator:
         if n_unmapped:
             logger.warning(
                 "[NBA] %d event(s) skipped due to unmapped team names. "
-                "Add entries to data/team_name_map.json[\"nba\"].",
+                "Add entries to data/team_name_maps/nba.json.",
                 n_unmapped,
             )
 

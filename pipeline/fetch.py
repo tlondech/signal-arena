@@ -103,11 +103,16 @@ def fetch_league_data(
         )
         return [], [], {}, {}, None
 
-    # Auto-resolve unmapped Winamax names against ESPN names for this league
+    # Auto-resolve unmapped Winamax names against ESPN names for this league.
+    # Also pull team names from pool leagues — cup competitions include teams
+    # from lower divisions that don't appear in the cup's own teams endpoint.
     from models.features import auto_patch_name_map, resolve_team_name
     winamax_names = {ev["home_team"] for ev in upcoming_events} | {ev["away_team"] for ev in upcoming_events}
     espn_names    = {f["home_team"] for f in raw_fixtures} | {f["away_team"] for f in raw_fixtures}
-    auto_patch_name_map(league.key, winamax_names, espn_names, name_map, cfg.team_map_path)
+    espn_names   |= espn.fetch_team_names(league.key)
+    for pool_key in (league.pool_leagues or []):
+        espn_names |= espn.fetch_team_names(pool_key)
+    auto_patch_name_map(league.key, winamax_names, espn_names, name_map, cfg.team_map_dir)
 
     # Build crest map from ESPN logo URLs and persist to JSON
     p = Path(cfg.football_crest_map_path)

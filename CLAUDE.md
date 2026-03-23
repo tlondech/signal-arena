@@ -32,7 +32,7 @@ main.py → pipeline/ → extractors/ + models/ → db/ + notifications/
 Plain ES modules, no bundler. Files in `js/`: `app.js`, `ui.js`, `api.js`, `state.js`, `config.js`. Served directly from `index.html`. Supabase is the data source at runtime.
 
 ## Data files
-- `data/team_name_map.json` — Winamax → canonical name mapping (football + NBA); edit manually to fix name mismatches. Always update `_meta.last_updated` to today's date when editing this file.
+- `data/team_name_maps/{league_key}.json` — Winamax → canonical name mapping, one file per league (football + NBA). Auto-populated from ESPN's `/teams` endpoint on each run; manual edits are rarely needed. Each file has a `_updated` field (ISO date) updated automatically when new entries are written.
 - `data/football_crest_map.json`, `tennis_crest_map.json`, `nba_crest_map.json` — logo/flag URLs (tennis map is auto-updated each run)
 - `data/signals.db` — SQLite; never commit this
 
@@ -91,7 +91,7 @@ The pipeline uses a polymorphic strategy pattern. To add an other sport (e.g. NF
 
 ## What to avoid
 - Don't import between `config.py` and `constants.py` circularly (only `constants.py → config.py` is allowed via the `_NBA_WINDOW` import)
-- Don't add league keys to `LEAGUES` without also updating `data/team_name_map.json`
+- Don't add league keys to `LEAGUES` without also adding a `data/team_name_maps/{league_key}.json` file (can be empty `{}` — the ESPN teams endpoint will auto-populate it on the next run)
 - Don't mock the Supabase or SQLite layers in tests — use real connections or skip
 - Don't bundle or transpile the JS frontend; it uses native ES modules via CDN imports
 - Don't mention API quota in README.md file

@@ -61,6 +61,7 @@ DIXON_COLES_RHO_BOUNDS = (-1.0, 1.0)
 
 # Optimizer stopping criteria
 DIXON_COLES_MAX_ITER = 1000
+DIXON_COLES_MAX_FUN = 100_000   # max f+g evaluations; cup competitions with many teams need more
 DIXON_COLES_FTOL = 1e-7
 
 # Numerical floor applied to the Dixon-Coles τ correction to prevent zero/negative probability

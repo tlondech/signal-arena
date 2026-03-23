@@ -150,7 +150,7 @@ class FootballFetcher:
                     | {f["away_team"] for f in auxiliary_fixtures}
                 )
                 auto_patch_name_map(
-                    league.key, winamax_names, pool_espn_names, name_map, cfg.team_map_path,
+                    league.key, winamax_names, pool_espn_names, name_map, cfg.team_map_dir,
                 )
 
         leg2_map = build_leg2_map(upcoming_events, raw_fixtures, name_map, league.key)

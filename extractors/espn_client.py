@@ -96,6 +96,48 @@ class ESPNClient(ABC):
     # Convenience helper — available to all subclasses
     # ------------------------------------------------------------------
 
+    def fetch_team_names(self, league_key: str) -> set[str]:
+        """Returns the set of ESPN displayName values for all teams in a league.
+
+        Calls the ESPN teams endpoint once per league per instance; results are
+        cached so repeated calls within the same run are free.
+
+        Returns an empty set silently if the league key is unknown or the
+        request fails.
+        """
+        if not hasattr(self, "_team_names_cache"):
+            self._team_names_cache: dict[str, set[str]] = {}
+        if league_key in self._team_names_cache:
+            return self._team_names_cache[league_key]
+
+        espn_league = self.LEAGUE_MAP.get(league_key, "")
+        if not espn_league:
+            self._team_names_cache[league_key] = set()
+            return set()
+
+        url = f"{ESPN_API_BASE_URL}/{self.SPORT}/{espn_league}/teams"
+        names: set[str] = set()
+        try:
+            time.sleep(_RATE_LIMIT_SECONDS)
+            r = requests.get(url, params={"limit": 200}, timeout=_TIMEOUT)
+            r.raise_for_status()
+            data = r.json()
+            sports = data.get("sports", [])
+            leagues = sports[0].get("leagues", []) if sports else []
+            teams_list = leagues[0].get("teams", []) if leagues else []
+            for entry in teams_list:
+                name = entry.get("team", {}).get("displayName")
+                if name:
+                    names.add(name)
+            logger.debug(
+                "ESPN teams endpoint: %d team(s) fetched for '%s'", len(names), league_key,
+            )
+        except Exception as exc:
+            logger.warning("ESPN teams fetch failed for '%s': %s", league_key, exc)
+
+        self._team_names_cache[league_key] = names
+        return names
+
     def _fetch_scoreboard_recent(
         self,
         sport: str,
