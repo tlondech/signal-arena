@@ -13405,3 +13405,11 @@ PHX,Phoenix Suns,2026-03-22,True,105,108,Milwaukee Bucks,2025-26
 MIL,Milwaukee Bucks,2026-03-22,False,108,105,Phoenix Suns,2025-26
 DEN,Denver Nuggets,2026-03-22,True,128,112,Portland Trail Blazers,2025-26
 POR,Portland Trail Blazers,2026-03-22,False,112,128,Denver Nuggets,2025-26
+SAC,Sacramento Kings,2026-03-22,True,126,122,Brooklyn Nets,2025-26
+BKN,Brooklyn Nets,2026-03-22,False,122,126,Sacramento Kings,2025-26
+NY,New York Knicks,2026-03-22,True,145,113,Washington Wizards,2025-26
+WSH,Washington Wizards,2026-03-22,False,113,145,New York Knicks,2025-26
+BOS,Boston Celtics,2026-03-23,True,92,102,Minnesota Timberwolves,2025-26
+MIN,Minnesota Timberwolves,2026-03-23,False,102,92,Boston Celtics,2025-26
+PHX,Phoenix Suns,2026-03-23,True,120,98,Toronto Raptors,2025-26
+TOR,Toronto Raptors,2026-03-23,False,98,120,Phoenix Suns,2025-26
